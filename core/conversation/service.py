@@ -74,9 +74,13 @@ async def load_history(
     return rows
 
 
-def build_chat_messages(history: Sequence[Message]) -> list[ChatMessage]:
+def build_chat_messages(
+    history: Sequence[Message], *, system_prompt: str | None = None
+) -> list[ChatMessage]:
     """Assemble the provider payload: system prompt + conversation history."""
-    messages = [ChatMessage(role="system", content=build_system_prompt())]
+    messages = [
+        ChatMessage(role="system", content=system_prompt or build_system_prompt())
+    ]
     messages.extend(
         ChatMessage(role=message.role, content=message.content)
         for message in history

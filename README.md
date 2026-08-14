@@ -8,7 +8,7 @@ This is a ground-up redesign of the classic `GauravSingh9356/J.A.R.V.I.S` voice 
 (now preserved under [`legacy/`](legacy/README.md)). See
 [`docs/MIGRATION.md`](docs/MIGRATION.md) for what is kept, refactored, replaced, and removed.
 
-> **Status: Phase 1 complete** — foundation (API, database, Redis, Docker Compose).
+> **Status: Phase 3 complete** — foundation, contextual AI chat, and guarded tool calling.
 > Follow progress in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Quick Start (Debian server)
@@ -40,7 +40,7 @@ Database migrations run automatically on container startup. Interactive docs:
 
 ```text
 apps/api        FastAPI backend
-core/           config, logging (domain layers added in later phases)
+core/           config, logging, LLM providers, conversations, tools, permissions, audit
 database/       SQLAlchemy models + Alembic migrations
 device_agents/  platform companion agents (Windows, Android — later phases)
 docs/           architecture, migration, roadmap, security, protocols
@@ -73,8 +73,9 @@ real credentials. Key variables:
 | `POSTGRES_PASSWORD` | Postgres password (used by the container and connection string) |
 | `DATABASE_URL` | Async SQLAlchemy URL (overridden to the `postgres` service in Compose) |
 | `REDIS_URL` | Redis URL (overridden to the `redis` service in Compose) |
-| `LLM_PROVIDER` / `LLM_MODEL` / `LLM_API_KEY` | AI provider (Phase 2+) |
+| `LLM_PROVIDER` / `LLM_MODEL` / `LLM_API_KEY` | AI provider |
 | `JARVIS_SECRET_KEY` | Application signing secret |
+| `TOOLS_ENABLED` / `TOOL_MAX_AUTONOMOUS_RISK` | Tool-calling gate and autonomous risk threshold |
 
 ## Development
 
@@ -92,7 +93,7 @@ real credentials. Key variables:
 - [`docs/WINDOWS_AGENT.md`](docs/WINDOWS_AGENT.md) *(Phase 4)*
 - [`docs/ANDROID_AGENT.md`](docs/ANDROID_AGENT.md) *(Phase 9)*
 - [`docs/SECURITY.md`](docs/SECURITY.md)
-- [`docs/TOOLS.md`](docs/TOOLS.md) *(Phase 3)*
+- [`docs/TOOLS.md`](docs/TOOLS.md)
 - [`docs/MEMORY.md`](docs/MEMORY.md) *(Phase 6)*
 - [`docs/MIGRATION.md`](docs/MIGRATION.md)
 - [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)

@@ -38,7 +38,15 @@ from database.base import (
 # --- flexibility; values are validated in application code).
 
 TASK_STATUSES = ("created", "planning", "waiting", "running", "completed", "failed", "cancelled")
-TOOL_CALL_STATUSES = ("created", "approved", "executed", "failed", "denied")
+TOOL_CALL_STATUSES = (
+    "created",
+    "approved",
+    "executed",
+    "failed",
+    "denied",
+    "validation_error",
+    "not_found",
+)
 MESSAGE_ROLES = ("system", "user", "assistant", "tool")
 MEMORY_KINDS = ("fact", "preference", "episodic", "session")
 PERMISSION_EFFECTS = ("allow", "deny")

@@ -12,6 +12,9 @@ from core import __version__
 from core.config import settings
 from core.llm.registry import create_provider
 from core.logging import setup_logging
+from core.security.permissions import PermissionPolicy
+from core.tools.builtins import register_default_tools
+from core.tools.registry import ToolRegistry
 from database.session import dispose_engine
 
 logger = logging.getLogger(__name__)
@@ -33,7 +36,19 @@ def create_app() -> FastAPI:
             )
         else:
             logger.warning("No LLM configured — chat endpoints will return 503")
+
+        app.state.tools = None
+        app.state.permissions = PermissionPolicy(settings.tool_max_autonomous_risk)
+        if settings.tools_enabled:
+            registry = ToolRegistry()
+            register_default_tools(registry)
+            app.state.tools = registry
+            logger.info("Tool registry ready", extra={"tools": registry.names()})
+        else:
+            logger.warning("Tools disabled — chat will run without tool calling")
         yield
+        if app.state.llm is not None:
+            await app.state.llm.close()
         await dispose_engine()
         logger.info("JARVIS API stopped")
 

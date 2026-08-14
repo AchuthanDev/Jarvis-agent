@@ -21,7 +21,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.deps import get_db, get_llm
+from apps.api.deps import get_db, get_llm, get_permission_policy, get_tools
+from core.agent import build_agent_prompt, run_agent_turn
 from core.config import settings
 from core.conversation.service import (
     add_message,
@@ -31,6 +32,10 @@ from core.conversation.service import (
 )
 from core.llm.base import LLMProvider
 from core.llm.errors import LLMError
+from core.llm.types import ChatMessage
+from core.security.permissions import PermissionPolicy
+from core.tools.base import ToolContext
+from core.tools.registry import ToolRegistry
 from database.models import Conversation, Message
 
 logger = logging.getLogger(__name__)
@@ -80,11 +85,55 @@ async def _require_llm(llm: LLMProvider | None) -> LLMProvider:
     return llm
 
 
+async def _run_turn(
+    provider: LLMProvider,
+    registry: ToolRegistry | None,
+    policy: PermissionPolicy,
+    session: AsyncSession,
+    *,
+    conversation_id: UUID,
+    user_id: UUID | None,
+    messages: list[ChatMessage],
+) -> str:
+    """Run one assistant turn, executing tools when enabled."""
+    if registry is None or not registry.names():
+        response = await provider.chat(
+            messages,
+            temperature=settings.llm_temperature,
+            max_tokens=settings.llm_max_tokens,
+        )
+        return response.content
+    context = ToolContext(
+        session=session,
+        conversation_id=conversation_id,
+        user_id=user_id,
+    )
+    result = await run_agent_turn(
+        provider,
+        registry,
+        policy,
+        messages,
+        context=context,
+        temperature=settings.llm_temperature,
+        max_tokens=settings.llm_max_tokens or 1024,
+    )
+    return result.reply
+
+
+def _stream_reply(reply: str):
+    """Yield ``reply`` in small chunks as SSE delta events."""
+    chunk_size = 64
+    for index in range(0, len(reply), chunk_size):
+        yield _sse("delta", {"delta": reply[index : index + chunk_size]})
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
     session: AsyncSession = Depends(get_db),
     llm: LLMProvider | None = Depends(get_llm),
+    registry: ToolRegistry | None = Depends(get_tools),
+    policy: PermissionPolicy = Depends(get_permission_policy),
 ) -> ChatResponse:
     provider = await _require_llm(llm)
     conversation = await resolve_or_create_conversation(
@@ -97,13 +146,17 @@ async def chat(
         session, conversation_id=conversation.id, role="user", content=request.message
     )
     history = await load_history(session, conversation_id=conversation.id)
-    messages = build_chat_messages(history)
+    messages = build_chat_messages(history, system_prompt=build_agent_prompt(registry))
 
     try:
-        response = await provider.chat(
-            messages,
-            temperature=settings.llm_temperature,
-            max_tokens=settings.llm_max_tokens,
+        reply = await _run_turn(
+            provider,
+            registry,
+            policy,
+            session,
+            conversation_id=conversation.id,
+            user_id=request.user_id,
+            messages=messages,
         )
     except LLMError as exc:
         logger.warning(
@@ -119,17 +172,17 @@ async def chat(
         ) from exc
 
     await add_message(
-        session, conversation_id=conversation.id, role="assistant", content=response.content
+        session, conversation_id=conversation.id, role="assistant", content=reply
     )
     logger.info(
         "chat completed",
         extra={
             "conversation_id": str(conversation.id),
             "provider": provider.name,
-            "tokens": len(response.content),
+            "tokens": len(reply),
         },
     )
-    return ChatResponse(conversation_id=conversation.id, reply=response.content)
+    return ChatResponse(conversation_id=conversation.id, reply=reply)
 
 
 @router.post("/chat/stream")
@@ -137,6 +190,8 @@ async def chat_stream(
     request: ChatRequest,
     session: AsyncSession = Depends(get_db),
     llm: LLMProvider | None = Depends(get_llm),
+    registry: ToolRegistry | None = Depends(get_tools),
+    policy: PermissionPolicy = Depends(get_permission_policy),
 ) -> StreamingResponse:
     provider = await _require_llm(llm)
     conversation = await resolve_or_create_conversation(
@@ -149,20 +204,21 @@ async def chat_stream(
         session, conversation_id=conversation.id, role="user", content=request.message
     )
     history = await load_history(session, conversation_id=conversation.id)
-    messages = build_chat_messages(history)
+    messages = build_chat_messages(history, system_prompt=build_agent_prompt(registry))
     conversation_id = conversation.id
 
     async def event_generator():
-        full: list[str] = []
         yield _sse("start", {"conversation_id": str(conversation_id)})
         try:
-            async for delta in provider.stream(
-                messages,
-                temperature=settings.llm_temperature,
-                max_tokens=settings.llm_max_tokens,
-            ):
-                full.append(delta)
-                yield _sse("delta", {"delta": delta})
+            content = await _run_turn(
+                provider,
+                registry,
+                policy,
+                session,
+                conversation_id=conversation_id,
+                user_id=request.user_id,
+                messages=messages,
+            )
         except LLMError as exc:
             logger.warning(
                 "chat stream failed",
@@ -175,7 +231,8 @@ async def chat_stream(
             yield _sse("error", {"message": "I couldn't reach the language model right now."})
             return
 
-        content = "".join(full)
+        for event in _stream_reply(content):
+            yield event
         await add_message(
             session, conversation_id=conversation_id, role="assistant", content=content
         )

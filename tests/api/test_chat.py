@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncIterator, Sequence
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
+from core.llm.base import LLMProvider
+from core.llm.types import ChatMessage, LLMResponse
+from database.models import ToolCall
 from tests.api.conftest import FakeProvider
 
 
@@ -98,3 +104,60 @@ def test_chat_returns_503_when_llm_not_configured(
         response = test_client.post("/api/chat", json={"message": "hi"})
 
     assert response.status_code == 503
+
+
+class _ToolProvider(LLMProvider):
+    """Provider that requests ``current_time`` once, then answers in prose."""
+
+    name = "tool-fake"
+    model = "tool-fake-model"
+
+    def __init__(self) -> None:
+        self.replies = ['{"tool": "current_time", "arguments": {}}', "It's now."]
+
+    async def chat(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+    ) -> LLMResponse:
+        return LLMResponse(content=self.replies.pop(0))
+
+    async def stream(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+    ) -> AsyncIterator[str]:
+        yield "It's now."
+
+
+def test_chat_runs_tool_and_records_tool_call(sessionmaker) -> None:
+    from apps.api.deps import get_db, get_llm
+    from apps.api.main import create_app
+
+    app = create_app()
+
+    async def override_db():
+        async with sessionmaker() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_llm] = lambda: _ToolProvider()
+    with TestClient(app) as test_client:
+        response = test_client.post("/api/chat", json={"message": "What time is it?"})
+
+    assert response.status_code == 200
+    assert response.json()["reply"] == "It's now."
+
+    async def fetch_rows() -> list[ToolCall]:
+        async with sessionmaker() as session:
+            return list((await session.scalars(select(ToolCall))).all())
+
+    rows = asyncio.run(fetch_rows())
+    assert len(rows) == 1
+    assert rows[0].tool == "current_time"
+    assert rows[0].status == "executed"
+    assert rows[0].parameters == {}

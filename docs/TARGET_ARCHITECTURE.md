@@ -91,14 +91,16 @@ jarvis/                              # repo root
 │   └── dashboard/                   # web dashboard (built separately / static)
 │
 ├── core/
-│   ├── agent/                       # agent loop
+│   ├── agent/                       # agent loop (parsing, prompt, loop) — Phase 3
 │   ├── llm/                         # LLM provider abstraction + providers
-│   ├── planner/
-│   ├── memory/
-│   ├── conversation/
-│   ├── tools/                       # tool registry, base Tool, decorators
-│   ├── security/                    # permissions, approval policy, validation
-│   └── events/
+│   ├── conversation/                # conversation state + context resolution
+│   ├── tools/                       # tool registry, base Tool, validation, builtins/ — Phase 3
+│   ├── security/                    # permissions / approval policy — Phase 3
+│   ├── audit/                       # tool-call + audit records — Phase 3
+│   ├── config.py                    # pydantic-settings
+│   ├── planner/                     # (planned, Phase 10)
+│   ├── memory/                      # (planned, Phase 6)
+│   └── events/                      # (planned, Phase 10)
 │
 ├── integrations/
 │   ├── web/
@@ -203,4 +205,7 @@ Heartbeats, request/ack, timeouts, reconnect, and token auth — details in
 | 2 | approval required | send email, delete file, install software, stop service |
 | 3 | highly sensitive | sudo, firewall, credentials, shutdown, factory reset |
 
-Tools enforce their own level **independently of the LLM**. Approval policy is configurable.
+Tools enforce their own level **independently of the LLM**. Implemented in Phase 3:
+`core/security/permissions.py` (`PermissionPolicy` — configurable risk threshold +
+explicit `permissions` table rows, deny wins over allow) applied inside
+`core/agent/loop.py` between LLM output and tool execution.

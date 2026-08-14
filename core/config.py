@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.7
     llm_max_tokens: int | None = None
 
+    # Tool calling (Phase 3). Set to false to disable tools entirely.
+    tools_enabled: bool = True
+    # Highest tool risk the LLM may execute without explicit permission.
+    tool_max_autonomous_risk: int = 1
+
     # Home Assistant integration (Phase 8+). Server-side only.
     home_assistant_url: str = ""
     home_assistant_token: str = Field(default="", repr=False)
