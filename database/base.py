@@ -1,6 +1,6 @@
 """Declarative base and shared column mixins for all JARVIS ORM models."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, MetaData, Uuid, func
@@ -25,9 +25,18 @@ class UUIDPrimaryKeyMixin:
     )
 
 
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 class CreatedAtMixin:
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True),
+        # ORM-level default keeps microsecond precision (SQLite's
+        # CURRENT_TIMESTAMP is second-granular, which breaks ordering).
+        default=_utcnow,
+        server_default=func.now(),
+        nullable=False,
     )
 
 

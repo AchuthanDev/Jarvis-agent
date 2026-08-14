@@ -38,15 +38,18 @@ drift, 6/6 tests pass, ruff clean.
 
 ---
 
-## Phase 2 — AI Chat Brain ⬜
+## Phase 2 — AI Chat Brain ✅
 
-- [ ] `core/llm` provider abstraction (OpenAI-compatible, Gemini, Groq, Ollama)
-- [ ] Conversations + message persistence
-- [ ] Contextual chat endpoint with streaming
-- [ ] Basic dashboard chat UI
-- [ ] Tests with mocked LLM
+- [x] `core/llm` provider abstraction (OpenAI-compatible, Gemini, Groq, Ollama)
+- [x] Conversations + message persistence
+- [x] Contextual chat endpoint with streaming
+- [x] Basic dashboard chat UI
+- [x] Tests with mocked LLM
 
-**Acceptance:** a normal contextual conversation with JARVIS works.
+**Acceptance:** a normal contextual conversation with JARVIS works. **Verified 2026-08-15:**
+non-streaming chat, contextual follow-up, and SSE streaming all confirmed live against
+Ollama (`llama3.2:1b`); conversations persist and appear in the history API; 29/29 tests
+pass, ruff clean, `alembic check` reports no drift; dashboard served at `/`.
 
 ---
 

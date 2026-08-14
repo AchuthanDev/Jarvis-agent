@@ -28,5 +28,5 @@ ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["uvicorn", "apps.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 FROM base AS dev
-RUN pip install --no-cache-dir "pytest>=8,<9" "pytest-asyncio>=0.23,<1" "ruff>=0.4,<1"
+RUN pip install --no-cache-dir ".[dev]"
 CMD ["pytest", "tests"]

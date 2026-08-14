@@ -5,10 +5,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-from apps.api.routers import health
+from apps.api.routers import chat, health
 from core import __version__
 from core.config import settings
+from core.llm.registry import create_provider
 from core.logging import setup_logging
 from database.session import dispose_engine
 
@@ -23,6 +25,14 @@ def create_app() -> FastAPI:
             "JARVIS API starting",
             extra={"version": __version__, "environment": settings.environment},
         )
+        app.state.llm = create_provider(settings)
+        if app.state.llm is not None:
+            logger.info(
+                "LLM provider ready",
+                extra={"provider": app.state.llm.name, "model": app.state.llm.model},
+            )
+        else:
+            logger.warning("No LLM configured — chat endpoints will return 503")
         yield
         await dispose_engine()
         logger.info("JARVIS API stopped")
@@ -43,6 +53,11 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router, prefix="/api")
+    app.include_router(chat.router)
+
+    static_dir = settings.static_dir
+    if static_dir.is_dir():
+        app.mount("/", StaticFiles(directory=static_dir, html=True), name="dashboard")
 
     return app
 

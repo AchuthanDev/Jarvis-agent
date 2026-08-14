@@ -42,7 +42,16 @@ Generate both with:
 openssl rand -base64 32
 ```
 
-Optional (later phases): `LLM_*`, `HOME_ASSISTANT_*`.
+Optional: `HOME_ASSISTANT_*` (Phase 8+). To enable the AI chat (Phase 2), set:
+
+```bash
+LLM_PROVIDER=ollama      # openai | gemini | groq | ollama | openai_compatible
+LLM_MODEL=llama3.2:1b    # model name
+# LLM_API_KEY=...        # required for cloud providers
+# LLM_BASE_URL=...       # e.g. http://localhost:11434 for Ollama
+```
+
+The dashboard chat UI is served at `http://localhost:8000/`.
 
 > **Never commit `.env`.** It is gitignored.
 

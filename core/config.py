@@ -7,6 +7,8 @@ e.g. ``database_url`` <-> ``DATABASE_URL``.
 Never put secrets in this file. Use the environment / `.env` (gitignored).
 """
 
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,6 +28,9 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
+    # Directory served at ``/`` by the API (dashboard UI).
+    static_dir: Path = Path("apps/dashboard/static")
+
     # Comma-separated list of allowed CORS origins.
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
@@ -40,6 +45,9 @@ class Settings(BaseSettings):
     llm_provider: str = "openai"
     llm_model: str = ""
     llm_api_key: str = Field(default="", repr=False)
+    llm_base_url: str = ""
+    llm_temperature: float = 0.7
+    llm_max_tokens: int | None = None
 
     # Home Assistant integration (Phase 8+). Server-side only.
     home_assistant_url: str = ""

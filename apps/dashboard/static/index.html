@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JARVIS — Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h1 class="brand">JARVIS</h1>
+      <button id="new-conversation" class="new-chat" type="button">+ New conversation</button>
+      <nav id="conversation-list" class="conversation-list" aria-label="Conversations"></nav>
+    </aside>
+
+    <main class="chat">
+      <header class="chat-header">
+        <span id="status-dot" class="status-dot" aria-hidden="true"></span>
+        <span id="status-text">Connecting…</span>
+      </header>
+
+      <section id="messages" class="messages" aria-live="polite"></section>
+
+      <form id="chat-form" class="composer">
+        <textarea
+          id="message-input"
+          rows="1"
+          placeholder="Message JARVIS…"
+          autocomplete="off"
+        ></textarea>
+        <button id="send-button" type="submit" disabled>Send</button>
+      </form>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
