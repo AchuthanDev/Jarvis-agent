@@ -1,0 +1,100 @@
+name: jarvis
+
+services:
+  jarvis-api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      target: api
+    env_file: .env
+    environment:
+      # Override for container-to-container connectivity; credentials come
+      # from the .env file, never committed.
+      DATABASE_URL: postgresql+asyncpg://jarvis:${POSTGRES_PASSWORD}@postgres:5432/jarvis
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/live')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - jarvis
+    # Uncomment for local development with live code changes:
+    # volumes:
+    #   - ./:/app
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: jarvis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: jarvis
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jarvis -d jarvis"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - jarvis
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - jarvis
+
+  # Development image: runs as root so test/checks can be executed. Run with:
+  #   docker compose run --rm jarvis-dev pytest
+  # (No bind mount: this repository lives on a Windows UNC share which Docker
+  # cannot mount; code is baked in at image build time.)
+  jarvis-dev:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      target: dev
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://jarvis:${POSTGRES_PASSWORD}@postgres:5432/jarvis
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles: ["dev"]
+    networks:
+      - jarvis
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  jarvis:
+    driver: bridge

@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jarvis"
+version = "0.1.0"
+description = "JARVIS — personal distributed AI operating layer"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.30,<1.0",
+    "pydantic>=2.8,<3.0",
+    "pydantic-settings>=2.4,<3.0",
+    "sqlalchemy[asyncio]>=2.0.30,<3.0",
+    "asyncpg>=0.29,<1.0",
+    "alembic>=1.13,<2.0",
+    "redis>=5.0,<6.0",
+    "python-json-logger>=3.0,<4.0",
+    "httpx>=0.27,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9.0",
+    "pytest-asyncio>=0.23,<1.0",
+    "ruff>=0.4,<1.0",
+    "mypy>=1.10,<2.0",
+]
+
+[tool.setuptools]
+# The project is installed as metadata+dependencies only. Source packages
+# (apps/, core/, database/, ...) are imported from the repo root via
+# PYTHONPATH=/app in the container, so generic top-level names never leak
+# into site-packages.
+packages = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic migrations are auto-generated boilerplate.
+"database/alembic/versions/*.py" = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
