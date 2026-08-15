@@ -70,7 +70,7 @@ pass, ruff clean, `alembic check` reports no drift; dashboard served at `/`.
 
 ---
 
-## Phase 4 — Windows Agent ⏳
+## Phase 4 — Windows Agent ✅
 
 - [x] `device_agents/windows` Python companion skeleton
 - [x] Secure WebSocket connect, device registration, heartbeat, reconnect loop
@@ -81,15 +81,14 @@ pass, ruff clean, `alembic check` reports no drift; dashboard served at `/`.
 - [x] Direct Debian-side tool test script
 - [x] Basic dashboard device list
 - [x] Manual Windows validation checkpoint prepared
-- [ ] Live validation against the actual Windows laptop
+- [x] Live validation against the actual Windows laptop
 
 **Acceptance:** "Open Google on my laptop" opens Google on the registered laptop.
-**Checkpoint 2026-08-15:** implementation ready for real laptop testing; 90/90 tests
-pass, ruff clean, `alembic check` reports no drift. Phase 4 is not complete until
-`windows.open_url`, `windows.open_app`, `windows.notification`, `windows.system_info`,
-and the natural-language "Open Google on my laptop" path pass against the actual laptop.
+**Verified 2026-08-15:** `windows.open_url`, `windows.open_app`,
+`windows.notification`, and `windows.system_info` passed against the actual Windows
+laptop over WebSocket.
 
-### Phase 4.5 — Natural-Language Windows Control ⏳
+### Phase 4.5 — Natural-Language Windows Control ✅
 
 - [x] Strengthened tool prompt for Windows actions, search, app aliases, and system-info questions
 - [x] `windows.open_url` supports known sites, bare domains, and `search_query`
@@ -97,23 +96,30 @@ and the natural-language "Open Google on my laptop" path pass against the actual
 - [x] Device resolution handles generic names (`my laptop`, `pc`, `computer`) via default,
       aliases, or single online Windows device
 - [x] Natural-language CI coverage with mocked LLM/device dispatch
-- [ ] Real-device validation through `/api/chat`
+- [x] Real-device validation through `/api/chat`
 
 **Acceptance:** normal English → agent tool selection → Windows WebSocket → real Windows
-action → natural response. **Checkpoint 2026-08-15:** implementation ready for manual
-chat validation; 108/108 tests pass, ruff clean, `alembic check` reports no drift.
+action → natural response. **Verified 2026-08-15:** real-device chat control passed.
 
 ---
 
-## Phase 5 — Voice ⬜
+## Phase 5 — Voice ⏳
 
-- [ ] Wake word (openWakeWord)
-- [ ] VAD
-- [ ] STT provider interface (faster-whisper first)
-- [ ] TTS provider interface (Piper / Edge TTS)
-- [ ] Voice end-to-end path
+- [x] Windows voice client separated from Windows desktop-control agent
+- [x] Audio device listing
+- [x] Push-to-talk mode
+- [x] VAD foundation for speech end detection
+- [x] STT provider interface (`faster-whisper` first)
+- [x] TTS provider interface (`edge_tts` first)
+- [x] `/api/chat` voice metadata using registered device identity
+- [x] Conversation reuse from the voice client
+- [x] Wake-word state-machine/provider scaffolding
+- [ ] Real push-to-talk validation on the Windows laptop
+- [ ] Wake word (openWakeWord or equivalent)
 
 **Acceptance:** "Hey Jarvis, open Google on my laptop" works entirely by voice.
+**Checkpoint 2026-08-15:** push-to-talk implementation is ready for manual testing.
+Wake-word mode remains blocked until push-to-talk passes on the real laptop.
 
 ---
 

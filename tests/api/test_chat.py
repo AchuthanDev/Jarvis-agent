@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator, Sequence
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from core.config import settings
+from core.devices.auth import hash_device_token
 from core.llm.base import LLMProvider
 from core.llm.types import ChatMessage, LLMResponse
-from database.models import Device, DeviceCapability, ToolCall
+from database.models import Conversation, Device, DeviceCapability, ToolCall
 from tests.api.conftest import FakeProvider
 
 
@@ -241,3 +243,88 @@ def test_chat_routes_open_google_to_windows_tool(sessionmaker) -> None:
         "windows.open_url",
         None,
     )
+
+
+def test_voice_chat_requires_device_token(sessionmaker) -> None:
+    from apps.api.deps import get_db, get_llm
+    from apps.api.main import create_app
+
+    async def create_device() -> str:
+        async with sessionmaker() as session:
+            device = Device(
+                name="Voice-Laptop",
+                device_type="windows",
+                token_hash=hash_device_token("device-token", settings.jarvis_secret_key),
+            )
+            session.add(device)
+            await session.commit()
+            return str(device.id)
+
+    device_id = asyncio.run(create_device())
+    app = create_app()
+
+    async def override_db():
+        async with sessionmaker() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_llm] = lambda: FakeProvider()
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            "/api/chat",
+            json={
+                "message": "Hello",
+                "source": "voice",
+                "source_device_id": device_id,
+                "response_mode": "voice",
+            },
+        )
+
+    assert response.status_code == 401
+
+
+def test_voice_chat_associates_conversation_with_source_device(sessionmaker) -> None:
+    from apps.api.deps import get_db, get_llm
+    from apps.api.main import create_app
+
+    async def create_device() -> str:
+        async with sessionmaker() as session:
+            device = Device(
+                name="Voice-Laptop",
+                device_type="windows",
+                token_hash=hash_device_token("device-token", settings.jarvis_secret_key),
+            )
+            session.add(device)
+            await session.commit()
+            return str(device.id)
+
+    device_id = asyncio.run(create_device())
+    app = create_app()
+
+    async def override_db():
+        async with sessionmaker() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_llm] = lambda: FakeProvider()
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            "/api/chat",
+            json={
+                "message": "Hello",
+                "source": "voice",
+                "source_device_id": device_id,
+                "response_mode": "voice",
+            },
+            headers={"X-JARVIS-DEVICE-TOKEN": "device-token"},
+        )
+
+    assert response.status_code == 200
+    conversation_id = response.json()["conversation_id"]
+
+    async def fetch_conversation() -> Conversation:
+        async with sessionmaker() as session:
+            return await session.get(Conversation, UUID(conversation_id))
+
+    conversation = asyncio.run(fetch_conversation())
+    assert str(conversation.device_id) == device_id

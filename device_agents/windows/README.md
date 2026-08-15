@@ -39,3 +39,19 @@ Optional auto-start:
 ```powershell
 .\install.ps1 -AutoStart
 ```
+
+## Voice Push-to-Talk
+
+Voice is optional and runs as a separate client process. It reuses the registered
+device identity from `.env` and sends transcripts to the normal `/api/chat` agent path.
+
+```powershell
+.\install-voice.ps1
+.\voice.ps1 --list-devices
+.\voice.ps1 --test-mic
+.\voice.ps1 --test-tts
+.\voice.ps1 --push-to-talk
+```
+
+Wake-word mode is scaffolded but intentionally blocked until push-to-talk passes on
+the real laptop. Full details are in [`../../docs/VOICE.md`](../../docs/VOICE.md).

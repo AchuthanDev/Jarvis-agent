@@ -8,8 +8,9 @@ This is a ground-up redesign of the classic `GauravSingh9356/J.A.R.V.I.S` voice 
 (now preserved under [`legacy/`](legacy/README.md)). See
 [`docs/MIGRATION.md`](docs/MIGRATION.md) for what is kept, refactored, replaced, and removed.
 
-> **Status: Phase 4 checkpoint** — Windows companion/device control is ready for
-> real laptop validation; Phase 4 is not complete until the physical laptop tests pass.
+> **Status: Phase 5 push-to-talk checkpoint** — Windows text/device control has
+> passed real laptop validation. The Windows voice client is ready for manual
+> push-to-talk testing; wake-word mode is intentionally held until that passes.
 > Follow progress in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Quick Start (Debian server)
@@ -66,6 +67,14 @@ make migrate                  # apply migrations
 python scripts/test_windows_tool.py --help  # direct Windows device tool test
 ```
 
+Windows voice client commands live in `device_agents/windows`:
+
+```powershell
+.\install-voice.ps1
+.\voice.ps1 --list-devices
+.\voice.ps1 --push-to-talk
+```
+
 ## Configuration
 
 Configuration is environment-driven via `.env` (see `.env.example`). Never commit
@@ -97,6 +106,7 @@ real credentials. Key variables:
 - [`docs/INSTALLATION.md`](docs/INSTALLATION.md)
 - [`docs/DEVICE_PROTOCOL.md`](docs/DEVICE_PROTOCOL.md)
 - [`docs/WINDOWS_AGENT.md`](docs/WINDOWS_AGENT.md)
+- [`docs/VOICE.md`](docs/VOICE.md)
 - [`docs/ANDROID_AGENT.md`](docs/ANDROID_AGENT.md) *(Phase 9)*
 - [`docs/SECURITY.md`](docs/SECURITY.md)
 - [`docs/TOOLS.md`](docs/TOOLS.md)

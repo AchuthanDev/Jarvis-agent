@@ -4,8 +4,9 @@ The Windows companion is a lightweight Python process in `device_agents/windows`
 It initiates an outbound authenticated WebSocket connection to the Debian JARVIS
 server, so the laptop does not need inbound port forwarding.
 
-Phase 4 stops at real-device validation. Voice, Android, Home Assistant, and
-advanced automation are intentionally out of scope here.
+The desktop-control agent is separate from the Phase 5 voice client. Voice lives in
+`device_agents/windows/voice/` and calls the same `/api/chat` pipeline as text chat.
+See [`VOICE.md`](VOICE.md) for push-to-talk setup and validation.
 
 ## Current Actions
 
@@ -291,10 +292,31 @@ Also remove `.env`:
 The scheduled task runs as the logged-in user and should not require Administrator
 rights.
 
+## Voice Client
+
+After the desktop agent is registered and working, install optional voice dependencies:
+
+```powershell
+.\install-voice.ps1
+```
+
+Useful commands:
+
+```powershell
+.\voice.ps1 --list-devices
+.\voice.ps1 --test-mic
+.\voice.ps1 --test-tts
+.\voice.ps1 --push-to-talk
+```
+
+The voice client reuses `JARVIS_DEVICE_ID` and `JARVIS_DEVICE_TOKEN` from `.env`.
+It sends transcripts to `/api/chat` with `source=voice`, so all reasoning, device
+resolution, and tool execution remain server-side.
+
 ## Known Limitations
 
 - Registration currently uses a bootstrap shared secret, not an interactive approval UI.
 - Device tokens are persisted in `.env`; Windows Credential Manager storage is a future hardening step.
 - Notification behavior depends on Windows notification settings and user session state.
 - `open_app` is allowlist-based; add explicit aliases for apps not in the default registry.
-- Real Phase 4 completion requires manual validation on the actual Windows laptop.
+- Wake-word mode is scaffolded but not enabled until push-to-talk passes on the actual laptop.

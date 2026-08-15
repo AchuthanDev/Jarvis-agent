@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -36,7 +36,9 @@ from core.conversation.service import (
     load_history,
     resolve_or_create_conversation,
 )
+from core.devices.auth import verify_device_token
 from core.devices.manager import DeviceConnectionManager
+from core.devices.service import load_device
 from core.llm.base import LLMProvider
 from core.llm.errors import LLMError
 from core.llm.types import ChatMessage
@@ -55,6 +57,9 @@ MAX_MESSAGE_LENGTH = 4000
 class ChatRequest(BaseModel):
     conversation_id: UUID | None = None
     user_id: UUID | None = None
+    source: str = Field(default="text", pattern="^(text|voice)$")
+    source_device_id: UUID | None = None
+    response_mode: str = Field(default="text", pattern="^(text|voice)$")
     message: str = Field(min_length=1, max_length=MAX_MESSAGE_LENGTH)
 
 
@@ -141,6 +146,24 @@ def _tool_call_out(result) -> dict[str, Any]:
     }
 
 
+async def _validate_voice_source(
+    request: ChatRequest,
+    session: AsyncSession,
+    token: str | None,
+) -> None:
+    if request.source != "voice":
+        return
+    if request.source_device_id is None:
+        raise HTTPException(status_code=422, detail="source_device_id is required for voice")
+    if not token:
+        raise HTTPException(status_code=401, detail="Voice device token is required")
+    device = await load_device(session, request.source_device_id)
+    if device is None:
+        raise HTTPException(status_code=404, detail="Voice source device not found")
+    if not verify_device_token(token, device.token_hash, settings.jarvis_secret_key):
+        raise HTTPException(status_code=401, detail="Invalid voice device token")
+
+
 def _stream_reply(reply: str):
     """Yield ``reply`` in small chunks as SSE delta events."""
     chunk_size = 64
@@ -151,6 +174,7 @@ def _stream_reply(reply: str):
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
+    x_jarvis_device_token: str | None = Header(default=None),
     session: AsyncSession = Depends(get_db),
     llm: LLMProvider | None = Depends(get_llm),
     registry: ToolRegistry | None = Depends(get_tools),
@@ -158,17 +182,22 @@ async def chat(
     device_manager: DeviceConnectionManager = Depends(get_device_connections),
 ) -> ChatResponse:
     provider = await _require_llm(llm)
+    await _validate_voice_source(request, session, x_jarvis_device_token)
     conversation = await resolve_or_create_conversation(
         session,
         conversation_id=request.conversation_id,
         user_id=request.user_id,
+        device_id=request.source_device_id,
         first_message=request.message,
     )
     await add_message(
         session, conversation_id=conversation.id, role="user", content=request.message
     )
     history = await load_history(session, conversation_id=conversation.id)
-    messages = build_chat_messages(history, system_prompt=build_agent_prompt(registry))
+    messages = build_chat_messages(
+        history,
+        system_prompt=build_agent_prompt(registry, response_mode=request.response_mode),
+    )
 
     try:
         result = await _run_turn(
@@ -216,6 +245,7 @@ async def chat(
 @router.post("/chat/stream")
 async def chat_stream(
     request: ChatRequest,
+    x_jarvis_device_token: str | None = Header(default=None),
     session: AsyncSession = Depends(get_db),
     llm: LLMProvider | None = Depends(get_llm),
     registry: ToolRegistry | None = Depends(get_tools),
@@ -223,17 +253,22 @@ async def chat_stream(
     device_manager: DeviceConnectionManager = Depends(get_device_connections),
 ) -> StreamingResponse:
     provider = await _require_llm(llm)
+    await _validate_voice_source(request, session, x_jarvis_device_token)
     conversation = await resolve_or_create_conversation(
         session,
         conversation_id=request.conversation_id,
         user_id=request.user_id,
+        device_id=request.source_device_id,
         first_message=request.message,
     )
     await add_message(
         session, conversation_id=conversation.id, role="user", content=request.message
     )
     history = await load_history(session, conversation_id=conversation.id)
-    messages = build_chat_messages(history, system_prompt=build_agent_prompt(registry))
+    messages = build_chat_messages(
+        history,
+        system_prompt=build_agent_prompt(registry, response_mode=request.response_mode),
+    )
     conversation_id = conversation.id
 
     async def event_generator():

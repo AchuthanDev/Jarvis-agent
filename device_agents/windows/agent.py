@@ -82,6 +82,10 @@ def _write_env_file(path: Path, values: dict[str, str]) -> None:
         f"JARVIS_DEVICE_NAME={existing.get('JARVIS_DEVICE_NAME', socket.gethostname())}",
         f"JARVIS_WINDOWS_APPS_JSON={existing.get('JARVIS_WINDOWS_APPS_JSON', '')}",
     ]
+    written = {line.split("=", 1)[0] for line in lines if "=" in line}
+    for key in sorted(existing):
+        if key not in written:
+            lines.append(f"{key}={existing[key]}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

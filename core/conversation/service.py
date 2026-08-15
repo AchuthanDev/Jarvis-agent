@@ -24,6 +24,7 @@ async def resolve_or_create_conversation(
     *,
     conversation_id: UUID | None,
     user_id: UUID | None,
+    device_id: UUID | None = None,
     first_message: str,
 ) -> Conversation:
     if conversation_id is not None:
@@ -32,7 +33,7 @@ async def resolve_or_create_conversation(
             raise HTTPException(status_code=404, detail="Conversation not found")
         return conversation
 
-    conversation = Conversation(user_id=user_id, title=first_message[:60])
+    conversation = Conversation(user_id=user_id, device_id=device_id, title=first_message[:60])
     session.add(conversation)
     await session.commit()
     await session.refresh(conversation)

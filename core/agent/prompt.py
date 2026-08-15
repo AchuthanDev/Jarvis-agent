@@ -37,12 +37,23 @@ Available tools:
 {tools}
 """
 
+_VOICE_RESPONSE_INSTRUCTIONS = """\
 
-def build_agent_prompt(registry: ToolRegistry | None) -> str:
+VOICE RESPONSE MODE
+The user's request came from a voice endpoint. Keep final spoken responses short,
+natural, and suitable for text-to-speech. Do not dump raw JSON unless the user
+explicitly asks for it.
+"""
+
+def build_agent_prompt(registry: ToolRegistry | None, *, response_mode: str = "text") -> str:
     """Persona + tool-call protocol instructions + tool catalogue."""
     base = build_system_prompt()
     if registry is None or not registry.names():
-        return base + "\n\n(No tools are available right now.)"
-    # Use replace() — the template's JSON examples contain literal braces that
-    # .format() would interpret as field names.
-    return base + "\n\n" + _TOOL_INSTRUCTIONS.replace("{tools}", registry.describe())
+        prompt = base + "\n\n(No tools are available right now.)"
+    else:
+        # Use replace() — the template's JSON examples contain literal braces that
+        # .format() would interpret as field names.
+        prompt = base + "\n\n" + _TOOL_INSTRUCTIONS.replace("{tools}", registry.describe())
+    if response_mode == "voice":
+        prompt += "\n\n" + _VOICE_RESPONSE_INSTRUCTIONS
+    return prompt

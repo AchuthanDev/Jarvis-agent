@@ -1,0 +1,6 @@
+# Optional Phase 5 voice dependencies. Installed only on the Windows voice endpoint.
+numpy>=1.26,<3.0
+sounddevice>=0.4.6,<1.0
+faster-whisper>=1.0,<2.0
+edge-tts>=7.0,<8.0
+pygame>=2.5,<3.0
