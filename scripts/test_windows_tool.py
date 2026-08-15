@@ -25,6 +25,11 @@ def _json_request(
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     headers = {"Content-Type": "application/json"}
     if token:
+        token = token.strip()
+        if "\n" in token or "\r" in token:
+            raise SystemExit(
+                "Admin token contains multiple lines. Use ADMIN_API_TOKEN or pass --admin-token explicitly."
+            )
         headers["X-JARVIS-ADMIN-TOKEN"] = token
     req = request.Request(url, data=data, headers=headers, method=method)
     try:
