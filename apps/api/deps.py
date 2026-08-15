@@ -2,12 +2,19 @@
 
 from fastapi import Request
 
+from core.devices.manager import DeviceConnectionManager
 from core.llm.base import LLMProvider
 from core.security.permissions import PermissionPolicy
 from core.tools.registry import ToolRegistry
 from database.session import get_db
 
-__all__ = ["get_db", "get_llm", "get_permission_policy", "get_tools"]
+__all__ = [
+    "get_db",
+    "get_device_connections",
+    "get_llm",
+    "get_permission_policy",
+    "get_tools",
+]
 
 
 def get_llm(request: Request) -> LLMProvider | None:
@@ -22,3 +29,7 @@ def get_tools(request: Request) -> ToolRegistry | None:
 
 def get_permission_policy(request: Request) -> PermissionPolicy:
     return getattr(request.app.state, "permissions", PermissionPolicy())
+
+
+def get_device_connections(request: Request) -> DeviceConnectionManager:
+    return request.app.state.device_connections

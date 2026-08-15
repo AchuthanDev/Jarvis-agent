@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir .
 COPY apps ./apps
 COPY core ./core
 COPY database ./database
+COPY device_agents ./device_agents
 COPY tests ./tests
 
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh

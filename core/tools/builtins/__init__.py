@@ -11,6 +11,7 @@ from core.tools.builtins.memory_tools import build_memory_tools
 from core.tools.builtins.system_status import system_status_tool
 from core.tools.builtins.time_tool import current_time_tool
 from core.tools.builtins.web_search import web_search_tool
+from core.tools.builtins.windows_tools import build_windows_tools
 from core.tools.registry import ToolRegistry
 
 
@@ -21,5 +22,6 @@ def register_default_tools(registry: ToolRegistry) -> None:
         system_status_tool(),
         web_search_tool(),
         *build_memory_tools(),
+        *build_windows_tools(),
     ):
         registry.register(tool)

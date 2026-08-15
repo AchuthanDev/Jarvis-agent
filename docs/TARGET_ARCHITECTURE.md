@@ -94,6 +94,7 @@ jarvis/                              # repo root
 │   ├── agent/                       # agent loop (parsing, prompt, loop) — Phase 3
 │   ├── llm/                         # LLM provider abstraction + providers
 │   ├── conversation/                # conversation state + context resolution
+│   ├── devices/                     # device auth + live connection manager — Phase 4
 │   ├── tools/                       # tool registry, base Tool, validation, builtins/ — Phase 3
 │   ├── security/                    # permissions / approval policy — Phase 3
 │   ├── audit/                       # tool-call + audit records — Phase 3

@@ -40,9 +40,9 @@ Database migrations run automatically on container startup. Interactive docs:
 
 ```text
 apps/api        FastAPI backend
-core/           config, logging, LLM providers, conversations, tools, permissions, audit
+core/           config, logging, LLM providers, conversations, tools, devices, permissions, audit
 database/       SQLAlchemy models + Alembic migrations
-device_agents/  platform companion agents (Windows, Android — later phases)
+device_agents/  platform companion agents (Windows started; Android later)
 docs/           architecture, migration, roadmap, security, protocols
 docker/         image definitions
 tests/          pytest suite
@@ -89,8 +89,8 @@ real credentials. Key variables:
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - [`docs/INSTALLATION.md`](docs/INSTALLATION.md)
-- [`docs/DEVICE_PROTOCOL.md`](docs/DEVICE_PROTOCOL.md) *(Phase 4)*
-- [`docs/WINDOWS_AGENT.md`](docs/WINDOWS_AGENT.md) *(Phase 4)*
+- [`docs/DEVICE_PROTOCOL.md`](docs/DEVICE_PROTOCOL.md)
+- [`docs/WINDOWS_AGENT.md`](docs/WINDOWS_AGENT.md)
 - [`docs/ANDROID_AGENT.md`](docs/ANDROID_AGENT.md) *(Phase 9)*
 - [`docs/SECURITY.md`](docs/SECURITY.md)
 - [`docs/TOOLS.md`](docs/TOOLS.md)

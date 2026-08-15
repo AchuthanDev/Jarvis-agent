@@ -3,7 +3,7 @@
 See [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md) for the full target design and
 [`MIGRATION.md`](MIGRATION.md) for how the legacy codebase maps onto it.
 
-## Current Implementation (Phase 3)
+## Current Implementation (Phase 4 in progress)
 
 ```
 browser / curl ──> FastAPI (apps/api) ──> conversation context
@@ -12,6 +12,7 @@ browser / curl ──> FastAPI (apps/api) ──> conversation context
                         │                              ├── core.tools registry
                         │                              ├── core.security permissions
                         │                              └── core.audit records
+                        ├──> /ws/device companion connections
                         ├──> PostgreSQL 16 (database/)
                         └──> Redis 7 (health/presence foundation)
 
@@ -19,7 +20,7 @@ Deployment: docker compose — jarvis-api, postgres, redis
 Entrypoint: docker/entrypoint.sh runs `alembic upgrade head`, then uvicorn.
 ```
 
-### API surface (Phase 3)
+### API surface (Phase 4 in progress)
 
 | Endpoint | Description |
 |---|---|
@@ -30,6 +31,10 @@ Entrypoint: docker/entrypoint.sh runs `alembic upgrade head`, then uvicorn.
 | `GET /api/conversations` | List conversations (newest first). |
 | `POST /api/conversations` | Create an empty conversation. |
 | `GET /api/conversations/{id}/messages` | Full message history for a conversation. |
+| `POST /api/devices/register` | Register a companion device with a one-time registration secret. |
+| `GET /api/devices` | List registered devices and live presence. |
+| `POST /api/devices/{id}/commands` | Dispatch an allowlisted command to a connected device. |
+| `WS /ws/device` | Authenticated companion-agent WebSocket. |
 | `GET /docs` | OpenAPI interactive docs. |
 | `GET /` | Static dashboard UI (served by FastAPI). |
 
@@ -43,6 +48,7 @@ Entrypoint: docker/entrypoint.sh runs `alembic upgrade head`, then uvicorn.
 - `core/tools/` — typed tool metadata, JSON Schema validation, registry, built-in tools.
 - `core/security/` — permission policy that gates tool execution independently of the model.
 - `core/audit/` — sanitized tool-call and audit-log persistence.
+- `core/devices/` — device registration auth, persistence helpers, live connection manager.
 - `core/conversation/` — system prompt + persistence/history assembly for chat.
 - `database/base.py` — declarative base + naming convention + column mixins.
 - `database/models.py` — full core schema (13 tables; see below).
@@ -52,7 +58,9 @@ Entrypoint: docker/entrypoint.sh runs `alembic upgrade head`, then uvicorn.
 - `apps/api/deps.py` — shared dependencies (`get_db`, `get_llm`).
 - `apps/api/routers/health.py` — health endpoints.
 - `apps/api/routers/chat.py` — chat + conversation endpoints.
+- `apps/api/routers/devices.py` — device registration, listing, command dispatch, WebSocket.
 - `apps/dashboard/` — static chat UI served at `/` (index.html, app.js, style.css).
+- `device_agents/windows/` — initial Windows companion agent.
 
 ### Schema (Phase 3)
 
@@ -74,5 +82,5 @@ Entrypoint: docker/entrypoint.sh runs `alembic upgrade head`, then uvicorn.
 
 ### Later phases add
 
-`core/memory`, `core/events`, `integrations/*`, `voice/*`, `device_agents/*`,
-`apps/worker`, `android-agent`.
+live Windows laptop validation, richer device selection, `core/memory`, `core/events`,
+`integrations/*`, `voice/*`, Android agent, `apps/worker`.

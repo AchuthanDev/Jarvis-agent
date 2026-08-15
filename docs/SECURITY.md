@@ -21,7 +21,7 @@ states the model and tracks current status per phase.
 6. **Validation before execution.** For every tool call: tool exists → device authorised →
    parameter schema valid → permission level satisfied → action not forbidden.
 
-## Current Status (Phase 3)
+## Current Status (Phase 4 in progress)
 
 | Control | Status |
 |---|---|
@@ -29,13 +29,13 @@ states the model and tracks current status per phase.
 | Non-root container | ✅ API runs as `jarvis` user |
 | Health checks on services | ✅ compose healthchecks for all three services |
 | TLS | ⏳ terminate at reverse proxy (Caddy/Nginx) in production |
-| Device registration + tokens | ⬜ Phase 4 (Windows agent) |
+| Device registration + tokens | ✅ `POST /api/devices/register`; token shown once, HMAC hash stored server-side |
 | API auth (users/sessions/API keys) | ⬜ later |
 | Rate limiting | ⬜ later |
 | Permission enforcement layer | ✅ `core/security/permissions.py` `PermissionPolicy`: risk threshold + explicit `permissions` table rules; deny wins over allow; applied in `core/agent/loop.py` between LLM output and execution |
 | Approval workflow for risk 2–3 | ⬜ UI for approval prompts |
 | Audit log tooling (records + retrieval) | ✅ `core/audit/record.py` — `tool_calls` + `audit_logs` rows per execution, parameters redacted per tool `redact` metadata |
-| Token rotation | ⬜ Phase 4 |
+| Token rotation | ⬜ later Phase 4 hardening |
 
 ## Production checklist (when exposed beyond localhost)
 

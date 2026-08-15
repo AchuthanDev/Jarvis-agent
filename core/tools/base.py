@@ -34,6 +34,7 @@ class ToolContext:
     conversation_id: UUID | None = None
     user_id: UUID | None = None
     device_id: UUID | None = None
+    device_manager: Any = None
 
 
 ToolFn = Callable[..., Awaitable[Any]]

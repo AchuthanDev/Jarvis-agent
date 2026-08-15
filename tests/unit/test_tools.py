@@ -18,10 +18,15 @@ from core.tools.validation import ToolValidationError
 
 EXPECTED_DEFAULT_TOOLS = {
     "current_time",
+    "devices.list",
     "server.system_status",
     "memory.remember",
     "memory.recall",
     "web.search",
+    "windows.notification",
+    "windows.open_app",
+    "windows.open_url",
+    "windows.system_info",
 }
 
 

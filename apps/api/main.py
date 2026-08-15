@@ -7,15 +7,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from apps.api.routers import chat, health
+from apps.api.routers import chat, devices, health
 from core import __version__
 from core.config import settings
+from core.devices.manager import DeviceConnectionManager
 from core.llm.registry import create_provider
 from core.logging import setup_logging
 from core.security.permissions import PermissionPolicy
 from core.tools.builtins import register_default_tools
 from core.tools.registry import ToolRegistry
-from database.session import dispose_engine
+from database.session import dispose_engine, get_sessionmaker
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,10 @@ def create_app() -> FastAPI:
             extra={"version": __version__, "environment": settings.environment},
         )
         app.state.llm = create_provider(settings)
+        app.state.db_sessionmaker = get_sessionmaker()
+        app.state.device_connections = DeviceConnectionManager(
+            command_timeout=settings.device_command_timeout_seconds
+        )
         if app.state.llm is not None:
             logger.info(
                 "LLM provider ready",
@@ -49,6 +54,7 @@ def create_app() -> FastAPI:
         yield
         if app.state.llm is not None:
             await app.state.llm.close()
+        await app.state.device_connections.close_all()
         await dispose_engine()
         logger.info("JARVIS API stopped")
 
@@ -69,6 +75,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router, prefix="/api")
     app.include_router(chat.router)
+    app.include_router(devices.router)
 
     static_dir = settings.static_dir
     if static_dir.is_dir():

@@ -70,13 +70,14 @@ pass, ruff clean, `alembic check` reports no drift; dashboard served at `/`.
 
 ---
 
-## Phase 4 — Windows Agent ⬜
+## Phase 4 — Windows Agent ⏳
 
-- [ ] `device_agents/windows` Python companion
-- [ ] Secure WebSocket connect, device registration, heartbeat, reconnect
-- [ ] Actions: open URL, open app, notification, system info
-- [ ] `docs/DEVICE_PROTOCOL.md`, `docs/WINDOWS_AGENT.md`
-- [ ] Protocol + permission tests
+- [x] `device_agents/windows` Python companion skeleton
+- [x] Secure WebSocket connect, device registration, heartbeat, reconnect loop
+- [x] Actions: open URL, open app, notification, system info
+- [x] `docs/DEVICE_PROTOCOL.md`, `docs/WINDOWS_AGENT.md`
+- [x] Protocol + permission tests
+- [ ] Live validation against the actual Windows laptop
 
 **Acceptance:** "Open Google on my laptop" opens Google on the registered laptop.
 

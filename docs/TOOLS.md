@@ -24,6 +24,11 @@ The agent loop validates the request before execution:
 | `web.search` | 0 | Lightweight web search result list. |
 | `memory.remember` | 1 | Store a user-approved fact/preference/episodic note. |
 | `memory.recall` | 0 | Retrieve stored memories, optionally by text query. |
+| `devices.list` | 0 | List registered devices and live presence. |
+| `windows.open_url` | 1 | Open a URL on a connected Windows companion. |
+| `windows.open_app` | 1 | Open an allowlisted app on a connected Windows companion. |
+| `windows.notification` | 1 | Show a notification on a connected Windows companion. |
+| `windows.system_info` | 0 | Read basic info from a connected Windows companion. |
 
 ## Adding A Tool
 

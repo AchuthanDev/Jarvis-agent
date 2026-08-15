@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     # Highest tool risk the LLM may execute without explicit permission.
     tool_max_autonomous_risk: int = 1
 
+    # Device companion registration/auth (Phase 4).
+    device_registration_secret: str = Field(default="", repr=False)
+    device_command_timeout_seconds: float = 20.0
+
     # Home Assistant integration (Phase 8+). Server-side only.
     home_assistant_url: str = ""
     home_assistant_token: str = Field(default="", repr=False)

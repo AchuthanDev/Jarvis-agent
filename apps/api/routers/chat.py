@@ -21,7 +21,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.deps import get_db, get_llm, get_permission_policy, get_tools
+from apps.api.deps import (
+    get_db,
+    get_device_connections,
+    get_llm,
+    get_permission_policy,
+    get_tools,
+)
 from core.agent import build_agent_prompt, run_agent_turn
 from core.config import settings
 from core.conversation.service import (
@@ -30,6 +36,7 @@ from core.conversation.service import (
     load_history,
     resolve_or_create_conversation,
 )
+from core.devices.manager import DeviceConnectionManager
 from core.llm.base import LLMProvider
 from core.llm.errors import LLMError
 from core.llm.types import ChatMessage
@@ -89,6 +96,7 @@ async def _run_turn(
     provider: LLMProvider,
     registry: ToolRegistry | None,
     policy: PermissionPolicy,
+    device_manager: DeviceConnectionManager,
     session: AsyncSession,
     *,
     conversation_id: UUID,
@@ -107,6 +115,7 @@ async def _run_turn(
         session=session,
         conversation_id=conversation_id,
         user_id=user_id,
+        device_manager=device_manager,
     )
     result = await run_agent_turn(
         provider,
@@ -134,6 +143,7 @@ async def chat(
     llm: LLMProvider | None = Depends(get_llm),
     registry: ToolRegistry | None = Depends(get_tools),
     policy: PermissionPolicy = Depends(get_permission_policy),
+    device_manager: DeviceConnectionManager = Depends(get_device_connections),
 ) -> ChatResponse:
     provider = await _require_llm(llm)
     conversation = await resolve_or_create_conversation(
@@ -153,6 +163,7 @@ async def chat(
             provider,
             registry,
             policy,
+            device_manager,
             session,
             conversation_id=conversation.id,
             user_id=request.user_id,
@@ -192,6 +203,7 @@ async def chat_stream(
     llm: LLMProvider | None = Depends(get_llm),
     registry: ToolRegistry | None = Depends(get_tools),
     policy: PermissionPolicy = Depends(get_permission_policy),
+    device_manager: DeviceConnectionManager = Depends(get_device_connections),
 ) -> StreamingResponse:
     provider = await _require_llm(llm)
     conversation = await resolve_or_create_conversation(
@@ -214,6 +226,7 @@ async def chat_stream(
                 provider,
                 registry,
                 policy,
+                device_manager,
                 session,
                 conversation_id=conversation_id,
                 user_id=request.user_id,
