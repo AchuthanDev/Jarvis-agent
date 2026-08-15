@@ -25,7 +25,7 @@ The agent loop validates the request before execution:
 | `memory.remember` | 1 | Store a user-approved fact/preference/episodic note. |
 | `memory.recall` | 0 | Retrieve stored memories, optionally by text query. |
 | `devices.list` | 0 | List registered devices and live presence. |
-| `windows.open_url` | 1 | Open an `http`/`https` URL on a connected Windows companion. |
+| `windows.open_url` | 1 | Open an `http`/`https` URL, known website, bare domain, or Google search on a connected Windows companion. |
 | `windows.open_app` | 1 | Open an allowlisted app on a connected Windows companion (`chrome`, `vscode`, etc.). |
 | `windows.notification` | 1 | Show a notification on a connected Windows companion. |
 | `windows.system_info` | 0 | Read structured system info from a connected Windows companion. |
@@ -40,6 +40,22 @@ Windows device resolution supports:
 
 If more than one Windows device matches and no default/alias is configured, the tool
 returns a clear error so the assistant can ask which device to use.
+
+`windows.open_url` accepts either:
+
+```json
+{"url": "Google"}
+```
+
+or:
+
+```json
+{"search_query": "Yamaha engine 34354345"}
+```
+
+Known site names currently include Google, YouTube, and GitHub. Bare domains such as
+`github.com` are normalized to `https://github.com`. Unsafe schemes such as `file:`
+remain blocked.
 
 ## Adding A Tool
 

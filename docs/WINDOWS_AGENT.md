@@ -232,6 +232,7 @@ After direct tests pass, use the chat API/dashboard:
 Open Google on my laptop.
 Open VS Code.
 How much RAM is my laptop using?
+Search Google for Yamaha engine 34354345 on my laptop.
 ```
 
 If exactly one Windows device is registered, JARVIS can infer it. If multiple Windows
@@ -243,6 +244,29 @@ Optional server-side resolution settings:
 DEFAULT_WINDOWS_DEVICE=<device-id-or-name>
 WINDOWS_DEVICE_ALIASES=laptop=<device-id>,my laptop=<device-id>,pc=<device-id>
 ```
+
+Manual API commands from Debian:
+
+```bash
+curl -fsS -X POST http://127.0.0.1:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Open Google on my laptop."}' | python3 -m json.tool
+
+curl -fsS -X POST http://127.0.0.1:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Open VS Code on my laptop."}' | python3 -m json.tool
+
+curl -fsS -X POST http://127.0.0.1:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"How much RAM is my laptop using?"}' | python3 -m json.tool
+
+curl -fsS -X POST http://127.0.0.1:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Search Google for Yamaha engine 34354345 on my laptop."}' | python3 -m json.tool
+```
+
+The response includes `reply`, `message`, `conversation_id`, and `tool_calls`. Use
+`tool_calls` to confirm which Windows tool was selected during validation.
 
 ## Auto Start
 

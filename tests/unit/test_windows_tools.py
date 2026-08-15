@@ -36,9 +36,10 @@ class FakeDeviceManager:
     def __init__(self) -> None:
         self.calls: list[tuple[UUID, str, dict]] = []
         self.offline = False
+        self.online_ids: set[UUID] = set()
 
     def online_device_ids(self) -> set[UUID]:
-        return {call[0] for call in self.calls}
+        return self.online_ids
 
     async def dispatch(
         self,
@@ -75,6 +76,65 @@ async def test_open_url_dispatches_to_named_windows_device(session: AsyncSession
 
     assert result["device_name"] == "Achuthan-Laptop"
     assert manager.calls == [(device.id, "open_url", {"url": "https://google.com"})]
+
+
+@pytest.mark.asyncio
+async def test_open_url_normalizes_known_website_name(session: AsyncSession) -> None:
+    device = Device(name="Achuthan-Laptop", device_type="windows")
+    session.add(device)
+    await session.flush()
+    session.add(DeviceCapability(device_id=device.id, capability="windows.open_url"))
+    await session.commit()
+
+    manager = FakeDeviceManager()
+    await _tools()["windows.open_url"].run(
+        {"device_name": "Achuthan-Laptop", "url": "YouTube"},
+        ToolContext(session=session, device_manager=manager),
+    )
+
+    assert manager.calls == [
+        (device.id, "open_url", {"url": "https://www.youtube.com"})
+    ]
+
+
+@pytest.mark.asyncio
+async def test_open_url_normalizes_bare_domain(session: AsyncSession) -> None:
+    device = Device(name="Achuthan-Laptop", device_type="windows")
+    session.add(device)
+    await session.flush()
+    session.add(DeviceCapability(device_id=device.id, capability="windows.open_url"))
+    await session.commit()
+
+    manager = FakeDeviceManager()
+    await _tools()["windows.open_url"].run(
+        {"device_name": "Achuthan-Laptop", "url": "github.com"},
+        ToolContext(session=session, device_manager=manager),
+    )
+
+    assert manager.calls == [(device.id, "open_url", {"url": "https://github.com"})]
+
+
+@pytest.mark.asyncio
+async def test_open_url_builds_google_search_url(session: AsyncSession) -> None:
+    device = Device(name="Achuthan-Laptop", device_type="windows")
+    session.add(device)
+    await session.flush()
+    session.add(DeviceCapability(device_id=device.id, capability="windows.open_url"))
+    await session.commit()
+
+    manager = FakeDeviceManager()
+    await _tools()["windows.open_url"].run(
+        {"device_name": "Achuthan-Laptop", "search_query": "Yamaha engine 34354345"},
+        ToolContext(session=session, device_manager=manager),
+    )
+
+    assert manager.calls == [
+        (
+            device.id,
+            "open_url",
+            {"url": "https://www.google.com/search?q=Yamaha+engine+34354345"},
+        )
+    ]
 
 
 @pytest.mark.asyncio
@@ -144,6 +204,45 @@ async def test_windows_device_alias_is_used(session: AsyncSession, monkeypatch) 
     )
 
     assert result["device_name"] == "Office-PC"
+
+
+@pytest.mark.asyncio
+async def test_generic_laptop_name_uses_only_registered_windows_device(
+    session: AsyncSession,
+) -> None:
+    device = Device(name="Only-Laptop", device_type="windows")
+    session.add(device)
+    await session.flush()
+    session.add(DeviceCapability(device_id=device.id, capability="windows.system_info"))
+    await session.commit()
+
+    manager = FakeDeviceManager()
+    result = await _tools()["windows.system_info"].run(
+        {"device_name": "my laptop"},
+        ToolContext(session=session, device_manager=manager),
+    )
+
+    assert result["device_name"] == "Only-Laptop"
+
+
+@pytest.mark.asyncio
+async def test_only_online_windows_device_is_used(session: AsyncSession) -> None:
+    offline = Device(name="Offline-Laptop", device_type="windows")
+    online = Device(name="Online-Laptop", device_type="windows")
+    session.add_all([offline, online])
+    await session.flush()
+    session.add(DeviceCapability(device_id=offline.id, capability="windows.system_info"))
+    session.add(DeviceCapability(device_id=online.id, capability="windows.system_info"))
+    await session.commit()
+
+    manager = FakeDeviceManager()
+    manager.online_ids = {online.id}
+    result = await _tools()["windows.system_info"].run(
+        {},
+        ToolContext(session=session, device_manager=manager),
+    )
+
+    assert result["device_name"] == "Online-Laptop"
 
 
 @pytest.mark.asyncio

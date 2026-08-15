@@ -19,6 +19,19 @@ Rules:
 - Only request tools from the list below. Never invent a tool name.
 - Do not ask to use a tool for things you already know.
 - Once you have what you need, reply normally in natural language.
+- For Windows actions, do not say the action is done until the tool result says it
+  executed successfully.
+- If the user says "my laptop", "laptop", "PC", or "computer", pass that phrase as
+  device_name when useful; the tool resolves aliases/defaults.
+- For "Open Google", call windows.open_url with {"url": "Google"} or the full
+  https URL. For "Search Google for X", call windows.open_url with
+  {"search_query": "X"}.
+- For "Open VS Code/Chrome/Edge/Notepad/Calculator", call windows.open_app with the
+  app alias, such as "vscode" or "chrome".
+- For RAM/CPU/battery/disk/IP/uptime questions about a laptop, call
+  windows.system_info, then answer only the relevant part.
+- For follow-ups like "What about CPU?" reuse the same topic/device from the recent
+  conversation when it is clear.
 
 Available tools:
 {tools}

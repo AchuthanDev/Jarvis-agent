@@ -15,11 +15,23 @@ from sqlalchemy.orm import selectinload
 from core.config import settings
 from core.devices.manager import DeviceCommandError, DeviceOfflineError
 from core.devices.protocol import (
+    google_search_url,
+    normalize_website_url,
     normalize_windows_command,
-    validate_http_url,
 )
 from core.tools.base import RISK_READ_ONLY, RISK_SAFE, Tool, ToolContext, ToolExecutionError
 from database.models import Device
+
+GENERIC_WINDOWS_DEVICE_NAMES = {
+    "laptop",
+    "my laptop",
+    "pc",
+    "my pc",
+    "computer",
+    "my computer",
+    "windows laptop",
+    "windows pc",
+}
 
 
 async def _device_by_id_or_name(context: ToolContext, value: str) -> Device | None:
@@ -58,11 +70,19 @@ async def _resolve_windows_device(
         if device is None:
             raise ToolExecutionError("Windows device not found")
     elif device_name:
-        target = alias_map.get(device_name.strip().lower(), device_name)
+        normalized_name = device_name.strip().lower()
+        target = alias_map.get(normalized_name, device_name)
         device = await _device_by_id_or_name(context, target)
+        if device is None and normalized_name in GENERIC_WINDOWS_DEVICE_NAMES:
+            device = await _resolve_windows_device(context)
     elif settings.default_windows_device:
         device = await _device_by_id_or_name(context, settings.default_windows_device)
     else:
+        online_ids = (
+            context.device_manager.online_device_ids()
+            if context.device_manager is not None
+            else set()
+        )
         devices = list(
             (
                 await context.session.scalars(
@@ -70,11 +90,25 @@ async def _resolve_windows_device(
                     .options(selectinload(Device.capabilities))
                     .where(Device.device_type == "windows")
                     .order_by(Device.last_seen.desc().nulls_last())
-                    .limit(2)
                 )
             ).all()
         )
-        if len(devices) == 1:
+        if online_ids:
+            online_devices = [device for device in devices if device.id in online_ids]
+            if len(online_devices) == 1:
+                device = online_devices[0]
+            elif len(online_devices) > 1:
+                names = ", ".join(d.name for d in online_devices)
+                raise ToolExecutionError(
+                    f"multiple online Windows devices match; specify one: {names}"
+                )
+            else:
+                device = None
+        else:
+            online_devices = []
+        if online_devices:
+            pass
+        elif len(devices) == 1:
             device = devices[0]
         elif not devices:
             raise ToolExecutionError("no Windows devices are registered")
@@ -146,19 +180,20 @@ async def _list_devices(*, context: ToolContext) -> dict[str, Any]:
 
 
 async def _open_url(
-    url: str,
+    url: str | None = None,
+    search_query: str | None = None,
     device_id: str | None = None,
     device_name: str | None = None,
     *,
     context: ToolContext,
 ) -> dict[str, Any]:
     try:
-        validate_http_url(url)
+        final_url = google_search_url(search_query) if search_query else normalize_website_url(url or "")
     except ValueError as exc:
         raise ToolExecutionError(str(exc)) from exc
     return await _dispatch(
         "open_url",
-        {"url": url},
+        {"url": final_url},
         context=context,
         device_id=device_id,
         device_name=device_name,
@@ -172,6 +207,7 @@ async def _open_app(
     *,
     context: ToolContext,
 ) -> dict[str, Any]:
+    app = app.strip().lower()
     return await _dispatch(
         "open_app",
         {"app": app},
@@ -237,14 +273,28 @@ def build_windows_tools() -> list[Tool]:
         ),
         Tool(
             name="windows.open_url",
-            description="Open a URL on a registered Windows companion device.",
+            description=(
+                "Open a website or Google search on a registered Windows companion. "
+                "Use url for known websites or domains: Google -> https://www.google.com, "
+                "YouTube -> https://www.youtube.com, GitHub -> https://github.com. "
+                "Use search_query for requests like 'search Google for ...' or 'look up ...'."
+            ),
             parameters={
                 "type": "object",
                 "properties": {
                     **_DEVICE_SELECTOR,
-                    "url": {"type": "string", "format": "uri", "minLength": 1},
+                    "url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Website name, bare domain, or http/https URL.",
+                    },
+                    "search_query": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Google search query to URL-encode and open.",
+                    },
                 },
-                "required": ["url"],
+                "anyOf": [{"required": ["url"]}, {"required": ["search_query"]}],
                 "additionalProperties": False,
             },
             fn=_open_url,
@@ -253,7 +303,10 @@ def build_windows_tools() -> list[Tool]:
         ),
         Tool(
             name="windows.open_app",
-            description="Open an installed application on a registered Windows device.",
+            description=(
+                "Open an allowlisted installed application on a registered Windows device. "
+                "Use aliases such as vscode, chrome, edge, notepad, calculator."
+            ),
             parameters={
                 "type": "object",
                 "properties": {
@@ -286,7 +339,10 @@ def build_windows_tools() -> list[Tool]:
         ),
         Tool(
             name="windows.system_info",
-            description="Get basic system information from a registered Windows device.",
+            description=(
+                "Get structured Windows system information. Use for RAM, CPU, battery, "
+                "disk, IP address, uptime, hostname, and Windows version questions."
+            ),
             parameters={
                 "type": "object",
                 "properties": _DEVICE_SELECTOR,

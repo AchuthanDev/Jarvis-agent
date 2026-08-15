@@ -28,7 +28,7 @@ from apps.api.deps import (
     get_permission_policy,
     get_tools,
 )
-from core.agent import build_agent_prompt, run_agent_turn
+from core.agent import AgentResult, build_agent_prompt, run_agent_turn
 from core.config import settings
 from core.conversation.service import (
     add_message,
@@ -61,6 +61,8 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     conversation_id: UUID
     reply: str
+    message: str
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ConversationSummary(BaseModel):
@@ -102,7 +104,7 @@ async def _run_turn(
     conversation_id: UUID,
     user_id: UUID | None,
     messages: list[ChatMessage],
-) -> str:
+) -> AgentResult:
     """Run one assistant turn, executing tools when enabled."""
     if registry is None or not registry.names():
         response = await provider.chat(
@@ -110,7 +112,7 @@ async def _run_turn(
             temperature=settings.llm_temperature,
             max_tokens=settings.llm_max_tokens,
         )
-        return response.content
+        return AgentResult(reply=response.content, tool_calls=[])
     context = ToolContext(
         session=session,
         conversation_id=conversation_id,
@@ -126,7 +128,17 @@ async def _run_turn(
         temperature=settings.llm_temperature,
         max_tokens=settings.llm_max_tokens or 1024,
     )
-    return result.reply
+    return result
+
+
+def _tool_call_out(result) -> dict[str, Any]:
+    return {
+        "tool": result.name,
+        "arguments": result.arguments,
+        "status": result.status,
+        "error": result.error,
+        "duration_ms": result.duration_ms,
+    }
 
 
 def _stream_reply(reply: str):
@@ -159,7 +171,7 @@ async def chat(
     messages = build_chat_messages(history, system_prompt=build_agent_prompt(registry))
 
     try:
-        reply = await _run_turn(
+        result = await _run_turn(
             provider,
             registry,
             policy,
@@ -183,17 +195,22 @@ async def chat(
         ) from exc
 
     await add_message(
-        session, conversation_id=conversation.id, role="assistant", content=reply
+        session, conversation_id=conversation.id, role="assistant", content=result.reply
     )
     logger.info(
         "chat completed",
         extra={
             "conversation_id": str(conversation.id),
             "provider": provider.name,
-            "tokens": len(reply),
+            "tokens": len(result.reply),
         },
     )
-    return ChatResponse(conversation_id=conversation.id, reply=reply)
+    return ChatResponse(
+        conversation_id=conversation.id,
+        reply=result.reply,
+        message=result.reply,
+        tool_calls=[_tool_call_out(call) for call in result.tool_calls],
+    )
 
 
 @router.post("/chat/stream")
@@ -222,7 +239,7 @@ async def chat_stream(
     async def event_generator():
         yield _sse("start", {"conversation_id": str(conversation_id)})
         try:
-            content = await _run_turn(
+            result = await _run_turn(
                 provider,
                 registry,
                 policy,
@@ -232,6 +249,7 @@ async def chat_stream(
                 user_id=request.user_id,
                 messages=messages,
             )
+            content = result.reply
         except LLMError as exc:
             logger.warning(
                 "chat stream failed",

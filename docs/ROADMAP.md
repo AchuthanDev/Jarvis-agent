@@ -89,6 +89,20 @@ pass, ruff clean, `alembic check` reports no drift. Phase 4 is not complete unti
 `windows.open_url`, `windows.open_app`, `windows.notification`, `windows.system_info`,
 and the natural-language "Open Google on my laptop" path pass against the actual laptop.
 
+### Phase 4.5 — Natural-Language Windows Control ⏳
+
+- [x] Strengthened tool prompt for Windows actions, search, app aliases, and system-info questions
+- [x] `windows.open_url` supports known sites, bare domains, and `search_query`
+- [x] Chat response includes `tool_calls` summaries for validation/debugging
+- [x] Device resolution handles generic names (`my laptop`, `pc`, `computer`) via default,
+      aliases, or single online Windows device
+- [x] Natural-language CI coverage with mocked LLM/device dispatch
+- [ ] Real-device validation through `/api/chat`
+
+**Acceptance:** normal English → agent tool selection → Windows WebSocket → real Windows
+action → natural response. **Checkpoint 2026-08-15:** implementation ready for manual
+chat validation; 108/108 tests pass, ruff clean, `alembic check` reports no drift.
+
 ---
 
 ## Phase 5 — Voice ⬜

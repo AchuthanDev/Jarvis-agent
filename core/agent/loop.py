@@ -42,7 +42,11 @@ def _serialize(output: Any) -> str:
 
 def format_result_for_model(result: ToolResult) -> str:
     if result.status == "executed":
-        return f"Tool '{result.name}' result: {result.output}"
+        return (
+            f"Tool '{result.name}' executed successfully. result: {result.output}\n"
+            "Reply to the user in one short natural sentence. Do not dump raw JSON "
+            "unless the user explicitly asked for raw output."
+        )
     if result.status == "denied":
         return (
             f"Tool '{result.name}' was denied: {result.denied_reason}. "
@@ -60,7 +64,8 @@ def format_result_for_model(result: ToolResult) -> str:
         )
     return (
         f"Tool '{result.name}' failed: {result.error}. "
-        "Answer without it or try another approach."
+        "Give the user a short natural explanation. If this was a Windows device "
+        "action, do not claim success."
     )
 
 
@@ -165,6 +170,7 @@ async def _execute(
         status=status,
         output=_serialize(output) if status == "executed" else None,
         error=error,
+        duration_ms=duration_ms,
     )
 
 
