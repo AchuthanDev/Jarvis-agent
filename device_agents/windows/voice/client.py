@@ -23,6 +23,23 @@ class ChatReply:
     tool_calls: list[dict[str, Any]]
 
 
+class JarvisServerError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str,
+        status_code: int,
+        retryable: bool = False,
+        retry_after: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.status_code = status_code
+        self.retryable = retryable
+        self.retry_after = retry_after
+
+
 class JarvisChatClient:
     def __init__(self, config: VoiceConfig) -> None:
         config.validate_for_chat()
@@ -64,7 +81,29 @@ class JarvisChatClient:
                 body = json.loads(response.read().decode("utf-8"))
         except error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"JARVIS server returned {exc.code}: {detail}") from exc
+            try:
+                payload = json.loads(detail)
+            except json.JSONDecodeError:
+                payload = {}
+            detail_payload = payload.get("detail", {})
+            structured = detail_payload.get("error", {}) if isinstance(detail_payload, dict) else {}
+            if not isinstance(structured, dict):
+                structured = payload.get("error", {})
+            if not isinstance(structured, dict):
+                structured = {}
+            code = structured.get("code") or ("provider_rate_limited" if exc.code == 429 else "server_error")
+            message = structured.get("message") or (
+                "The AI provider is temporarily rate limited."
+                if exc.code == 429
+                else f"JARVIS server returned HTTP {exc.code}."
+            )
+            raise JarvisServerError(
+                message,
+                code=str(code),
+                status_code=exc.code,
+                retryable=bool(structured.get("retryable", exc.code == 429 or exc.code >= 500)),
+                retry_after=exc.headers.get("Retry-After"),
+            ) from exc
         except OSError as exc:
             raise RuntimeError("I can't reach the JARVIS server.") from exc
         return ChatReply(
@@ -121,10 +160,18 @@ class VoiceInteraction:
 
         self.state.transition(VoiceState.PROCESSING)
         agent_started = time.perf_counter()
-        reply = await self.chat.send_transcript(
-            transcript,
-            conversation_id=self.conversation_id,
-        )
+        try:
+            reply = await self.chat.send_transcript(
+                transcript,
+                conversation_id=self.conversation_id,
+            )
+        except RuntimeError as exc:
+            if isinstance(exc, JarvisServerError) and exc.code == "provider_rate_limited":
+                print("JARVIS: My AI provider is temporarily rate-limited. Try again shortly.")
+            else:
+                print(f"JARVIS unavailable: {exc}")
+            self.state.transition(VoiceState.IDLE)
+            return None
         agent_duration = time.perf_counter() - agent_started
         self.conversation_id = reply.conversation_id
         self.last_reply = reply.reply

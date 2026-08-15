@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Sequence
 
 from core.llm.base import LLMProvider
-from core.llm.errors import LLMError
+from core.llm.errors import LLMError, LLMRateLimitError
 from core.llm.types import ChatMessage, LLMResponse
 
 
@@ -49,6 +49,13 @@ class OpenAIProvider(LLMProvider):
                 **kwargs,
             )
         except Exception as exc:
+            if type(exc).__name__ == "RateLimitError" or getattr(exc, "status_code", None) == 429:
+                headers = getattr(getattr(exc, "response", None), "headers", None) or getattr(exc, "headers", {}) or {}
+                retry_after = headers.get("retry-after") or headers.get("Retry-After")
+                raise LLMRateLimitError(
+                    provider=self.name,
+                    retry_after=str(retry_after) if retry_after else None,
+                ) from exc
             raise LLMError(f"OpenAI-compatible request failed: {type(exc).__name__}") from exc
         choice = response.choices[0]
         return LLMResponse(
@@ -75,6 +82,13 @@ class OpenAIProvider(LLMProvider):
                 **kwargs,
             )
         except Exception as exc:
+            if type(exc).__name__ == "RateLimitError" or getattr(exc, "status_code", None) == 429:
+                headers = getattr(getattr(exc, "response", None), "headers", None) or getattr(exc, "headers", {}) or {}
+                retry_after = headers.get("retry-after") or headers.get("Retry-After")
+                raise LLMRateLimitError(
+                    provider=self.name,
+                    retry_after=str(retry_after) if retry_after else None,
+                ) from exc
             raise LLMError(f"OpenAI-compatible request failed: {type(exc).__name__}") from exc
 
         try:

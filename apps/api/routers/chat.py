@@ -40,7 +40,7 @@ from core.devices.auth import verify_device_token
 from core.devices.manager import DeviceConnectionManager
 from core.devices.service import load_device
 from core.llm.base import LLMProvider
-from core.llm.errors import LLMError
+from core.llm.errors import LLMError, LLMRateLimitError
 from core.llm.types import ChatMessage
 from core.security.permissions import PermissionPolicy
 from core.tools.base import ToolContext
@@ -210,6 +210,19 @@ async def chat(
             user_id=request.user_id,
             messages=messages,
         )
+    except LLMRateLimitError as exc:
+        logger.warning(
+            "chat rate limited",
+            extra={"conversation_id": str(conversation.id), "provider": provider.name},
+        )
+        error = {
+            "code": "provider_rate_limited",
+            "provider": exc.provider,
+            "retryable": True,
+            "message": "The AI provider is temporarily rate limited.",
+        }
+        headers = {"Retry-After": exc.retry_after} if exc.retry_after else None
+        raise HTTPException(status_code=429, detail={"error": error}, headers=headers) from exc
     except LLMError as exc:
         logger.warning(
             "chat failed",
