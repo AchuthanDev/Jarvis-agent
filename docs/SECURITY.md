@@ -30,16 +30,18 @@ states the model and tracks current status per phase.
 | Health checks on services | ✅ compose healthchecks for all three services |
 | TLS | ⏳ terminate at reverse proxy (Caddy/Nginx) in production |
 | Device registration + tokens | ✅ `POST /api/devices/register`; token shown once, HMAC hash stored server-side |
+| Direct device command auth | ✅ `POST /api/devices/{id}/commands` requires `X-JARVIS-ADMIN-TOKEN` |
 | API auth (users/sessions/API keys) | ⬜ later |
 | Rate limiting | ⬜ later |
 | Permission enforcement layer | ✅ `core/security/permissions.py` `PermissionPolicy`: risk threshold + explicit `permissions` table rules; deny wins over allow; applied in `core/agent/loop.py` between LLM output and execution |
 | Approval workflow for risk 2–3 | ⬜ UI for approval prompts |
 | Audit log tooling (records + retrieval) | ✅ `core/audit/record.py` — `tool_calls` + `audit_logs` rows per execution, parameters redacted per tool `redact` metadata |
-| Token rotation | ⬜ later Phase 4 hardening |
+| Token rotation | ⬜ later hardening |
 
 ## Production checklist (when exposed beyond localhost)
 
 - Put the API behind TLS (Caddy/Nginx) and do not expose port 8000 directly.
 - Set a strong `JARVIS_SECRET_KEY` and `POSTGRES_PASSWORD`.
+- Set `ADMIN_API_TOKEN` separately if direct command testing will be exposed beyond localhost.
 - Restrict the Docker network to the LAN; avoid publishing services to `0.0.0.0` unless intended.
 - Back up the `pgdata` volume; rotate secrets periodically.

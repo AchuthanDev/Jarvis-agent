@@ -4,6 +4,7 @@ const state = {
   conversations: [],
   activeConversationId: null,
   streaming: false,
+  view: "chat",
 };
 
 const $ = (id) => document.getElementById(id);
@@ -14,6 +15,11 @@ const sendButton = $("send-button");
 const listEl = $("conversation-list");
 const statusDot = $("status-dot");
 const statusText = $("status-text");
+const devicesView = $("devices-view");
+const devicesList = $("devices-list");
+const chatViewButton = $("chat-view-button");
+const devicesViewButton = $("devices-view-button");
+const refreshDevicesButton = $("refresh-devices");
 
 function setStatus(kind, text) {
   statusDot.className = "status-dot " + kind;
@@ -52,6 +58,64 @@ function renderConversations() {
     el.textContent = convo.title || "(new conversation)";
     el.addEventListener("click", () => openConversation(convo.id));
     listEl.appendChild(el);
+  }
+}
+
+function setView(view) {
+  state.view = view;
+  messagesEl.classList.toggle("hidden", view !== "chat");
+  formEl.classList.toggle("hidden", view !== "chat");
+  devicesView.classList.toggle("hidden", view !== "devices");
+  chatViewButton.classList.toggle("active", view === "chat");
+  devicesViewButton.classList.toggle("active", view === "devices");
+  if (view === "devices") refreshDevices();
+}
+
+function formatDate(value) {
+  if (!value) return "Never";
+  return new Date(value).toLocaleString();
+}
+
+function renderDevices(devices) {
+  devicesList.innerHTML = "";
+  if (devices.length === 0) {
+    devicesList.innerHTML = '<div class="empty">No registered devices.</div>';
+    return;
+  }
+  for (const device of devices) {
+    const el = document.createElement("article");
+    el.className = "device-row";
+    const status = device.online ? "Online" : "Offline";
+    el.innerHTML = `
+      <div class="device-main">
+        <div>
+          <h3></h3>
+          <p></p>
+        </div>
+        <span class="device-status ${device.online ? "online" : "offline"}">${status}</span>
+      </div>
+      <dl>
+        <div><dt>Last seen</dt><dd>${formatDate(device.last_seen)}</dd></div>
+        <div><dt>Agent</dt><dd class="agent-version"></dd></div>
+        <div><dt>Capabilities</dt><dd class="capabilities"></dd></div>
+      </dl>
+    `;
+    el.querySelector("h3").textContent = device.name;
+    el.querySelector("p").textContent =
+      `${device.device_type}${device.operating_system ? " · " + device.operating_system : ""}`;
+    el.querySelector(".agent-version").textContent = device.agent_version || "Unknown";
+    const caps = el.querySelector(".capabilities");
+    caps.textContent = device.capabilities.length ? device.capabilities.join(", ") : "None";
+    devicesList.appendChild(el);
+  }
+}
+
+async function refreshDevices() {
+  try {
+    renderDevices(await api("/api/devices"));
+  } catch (err) {
+    devicesList.innerHTML = '<div class="empty">Could not load devices.</div>';
+    console.error("Failed to load devices:", err);
   }
 }
 
@@ -202,6 +266,9 @@ inputEl.addEventListener("input", () => {
 });
 
 $("new-conversation").addEventListener("click", newConversation);
+chatViewButton.addEventListener("click", () => setView("chat"));
+devicesViewButton.addEventListener("click", () => setView("devices"));
+refreshDevicesButton.addEventListener("click", refreshDevices);
 
 async function init() {
   setStatus("connecting", "Connecting…");

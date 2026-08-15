@@ -9,11 +9,12 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from core.config import settings
 from core.devices.manager import DeviceOfflineError
 from core.tools.base import ToolContext, ToolExecutionError
 from core.tools.builtins.windows_tools import build_windows_tools
 from database.base import Base
-from database.models import Device
+from database.models import Device, DeviceCapability
 
 
 @pytest.fixture
@@ -39,7 +40,14 @@ class FakeDeviceManager:
     def online_device_ids(self) -> set[UUID]:
         return {call[0] for call in self.calls}
 
-    async def dispatch(self, device_id: UUID, action: str, parameters: dict) -> dict:
+    async def dispatch(
+        self,
+        device_id: UUID,
+        action: str,
+        parameters: dict,
+        *,
+        tool: str | None = None,
+    ) -> dict:
         if self.offline:
             raise DeviceOfflineError("offline")
         self.calls.append((device_id, action, parameters))
@@ -54,6 +62,8 @@ def _tools() -> dict[str, object]:
 async def test_open_url_dispatches_to_named_windows_device(session: AsyncSession) -> None:
     device = Device(name="Achuthan-Laptop", device_type="windows")
     session.add(device)
+    await session.flush()
+    session.add(DeviceCapability(device_id=device.id, capability="windows.open_url"))
     await session.commit()
 
     manager = FakeDeviceManager()
@@ -71,6 +81,8 @@ async def test_open_url_dispatches_to_named_windows_device(session: AsyncSession
 async def test_windows_tool_reports_offline_device(session: AsyncSession) -> None:
     device = Device(name="Achuthan-Laptop", device_type="windows")
     session.add(device)
+    await session.flush()
+    session.add(DeviceCapability(device_id=device.id, capability="windows.system_info"))
     await session.commit()
 
     manager = FakeDeviceManager()
@@ -79,4 +91,70 @@ async def test_windows_tool_reports_offline_device(session: AsyncSession) -> Non
         await _tools()["windows.system_info"].run(
             {"device_name": "Achuthan-Laptop"},
             ToolContext(session=session, device_manager=manager),
+        )
+
+
+@pytest.mark.asyncio
+async def test_open_url_rejects_unsafe_scheme(session: AsyncSession) -> None:
+    device = Device(name="Achuthan-Laptop", device_type="windows")
+    session.add(device)
+    await session.flush()
+    session.add(DeviceCapability(device_id=device.id, capability="windows.open_url"))
+    await session.commit()
+
+    with pytest.raises(ToolExecutionError, match="only http and https"):
+        await _tools()["windows.open_url"].run(
+            {"device_name": "Achuthan-Laptop", "url": "file:///C:/Windows/System32/calc.exe"},
+            ToolContext(session=session, device_manager=FakeDeviceManager()),
+        )
+
+
+@pytest.mark.asyncio
+async def test_default_windows_device_is_used(session: AsyncSession, monkeypatch) -> None:
+    device = Device(name="Default-Laptop", device_type="windows")
+    session.add(device)
+    await session.flush()
+    session.add(DeviceCapability(device_id=device.id, capability="windows.system_info"))
+    await session.commit()
+    monkeypatch.setattr(settings, "default_windows_device", str(device.id))
+
+    manager = FakeDeviceManager()
+    result = await _tools()["windows.system_info"].run(
+        {},
+        ToolContext(session=session, device_manager=manager),
+    )
+
+    assert result["device_name"] == "Default-Laptop"
+    assert manager.calls == [(device.id, "system_info", {})]
+
+
+@pytest.mark.asyncio
+async def test_windows_device_alias_is_used(session: AsyncSession, monkeypatch) -> None:
+    device = Device(name="Office-PC", device_type="windows")
+    session.add(device)
+    await session.flush()
+    session.add(DeviceCapability(device_id=device.id, capability="windows.system_info"))
+    await session.commit()
+    monkeypatch.setattr(settings, "windows_device_aliases", f"pc={device.id},my laptop={device.id}")
+
+    manager = FakeDeviceManager()
+    result = await _tools()["windows.system_info"].run(
+        {"device_name": "my laptop"},
+        ToolContext(session=session, device_manager=manager),
+    )
+
+    assert result["device_name"] == "Office-PC"
+
+
+@pytest.mark.asyncio
+async def test_multiple_windows_devices_require_specific_device(session: AsyncSession) -> None:
+    first = Device(name="Laptop-One", device_type="windows")
+    second = Device(name="Laptop-Two", device_type="windows")
+    session.add_all([first, second])
+    await session.commit()
+
+    with pytest.raises(ToolExecutionError, match="multiple Windows devices"):
+        await _tools()["windows.system_info"].run(
+            {},
+            ToolContext(session=session, device_manager=FakeDeviceManager()),
         )

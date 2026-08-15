@@ -1,69 +1,276 @@
 # Windows Agent
 
-The Windows companion is a lightweight Python agent in `device_agents/windows`.
+The Windows companion is a lightweight Python process in `device_agents/windows`.
+It initiates an outbound authenticated WebSocket connection to the Debian JARVIS
+server, so the laptop does not need inbound port forwarding.
 
-Current Phase 4 actions:
+Phase 4 stops at real-device validation. Voice, Android, Home Assistant, and
+advanced automation are intentionally out of scope here.
+
+## Current Actions
 
 | Action | Server tool | Notes |
 |---|---|---|
-| `open_url` | `windows.open_url` | Opens only `http`/`https` URLs. |
-| `open_app` | `windows.open_app` | Uses a local allowlist (`chrome`, `edge`, `firefox`, `notepad`, `calculator`, `vscode`). |
-| `notification` | `windows.notification` | Initial notification plumbing; toast support may vary by Windows context. |
-| `system_info` | `windows.system_info` | Hostname, platform, Python version. |
+| `open_url` | `windows.open_url` | Opens only `http` and `https` URLs. |
+| `open_app` | `windows.open_app` | Uses a controlled local allowlist. Unknown apps fail clearly. |
+| `notification` | `windows.notification` | Uses `winotify` when available, with a PowerShell notification fallback. |
+| `system_info` | `windows.system_info` | Hostname, Windows version, CPU, RAM, disk, battery, uptime, local IP. |
+
+Default app aliases:
+
+```text
+chrome, google chrome, edge, microsoft edge, firefox,
+notepad, calculator, calc, vscode, vs code
+```
+
+Optional local aliases can be added with `JARVIS_WINDOWS_APPS_JSON`; the file must
+map app aliases to fixed argument arrays. The agent never runs arbitrary LLM-provided
+shell strings.
 
 ## Server Setup
 
-Set a registration secret in `.env`:
+On Debian, set these values in `.env`:
 
 ```env
-DEVICE_REGISTRATION_SECRET=generate-a-long-random-value
+DEVICE_REGISTRATION_SECRET=<long-random-registration-secret>
+JARVIS_SECRET_KEY=<long-random-server-secret>
+ADMIN_API_TOKEN=<optional-direct-test-token>
+DEVICE_COMMAND_TIMEOUT_SECONDS=20
+DEVICE_PRESENCE_TIMEOUT_SECONDS=45
 ```
 
-Then restart the API:
+Restart the API:
 
 ```bash
 docker compose up -d --build jarvis-api
+curl -fsS http://127.0.0.1:8000/api/health/ready
 ```
 
-## Register The Windows Device
+Find the LAN address Windows should use:
 
-On Windows:
+```bash
+hostname -I
+```
+
+Use an address reachable from the laptop, for example `http://192.168.1.50:8000`.
+
+## Windows Install
+
+On the Windows laptop, use PowerShell:
 
 ```powershell
-$env:JARVIS_SERVER_URL = "http://SERVER-IP:8000"
-$env:JARVIS_DEVICE_REGISTRATION_SECRET = "same-secret-from-server"
-python -m device_agents.windows.agent register --name Achuthan-Laptop
+git clone <repository-url>
+cd <repository>\device_agents\windows
+.\install.ps1
 ```
 
-Store the returned `device_id` and `device_token` locally on the Windows machine.
+If script execution is blocked for the current shell:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\install.ps1
+```
+
+This creates:
+
+```text
+device_agents\windows\.venv
+device_agents\windows\.env
+```
+
+Docker is not required on Windows.
+
+## Configure
+
+Edit `device_agents\windows\.env`:
+
+```env
+JARVIS_SERVER_URL=http://<debian-lan-ip>:8000
+JARVIS_DEVICE_ID=
+JARVIS_DEVICE_TOKEN=
+JARVIS_DEVICE_NAME=My-Laptop
+JARVIS_WINDOWS_APPS_JSON=
+```
+
+Do not put the registration secret or permanent token in source files.
+
+## Register / Pair
+
+Phase 4 uses a bootstrap registration secret. The server issues a per-device token
+and stores only a hash. A short-lived user-approval pairing screen is planned later.
+
+Register from Windows:
+
+```powershell
+$env:JARVIS_DEVICE_REGISTRATION_SECRET = "<same value as DEVICE_REGISTRATION_SECRET>"
+.\.venv\Scripts\python.exe agent.py --config .\.env register --name "My-Laptop"
+Remove-Item Env:JARVIS_DEVICE_REGISTRATION_SECRET
+```
+
+Successful output looks like:
+
+```text
+Registered with JARVIS.
+Device: My-Laptop
+Device ID: <uuid>
+Config: C:\...\device_agents\windows\.env
+Token stored in config file and not printed.
+```
+
+The generated `JARVIS_DEVICE_ID` and `JARVIS_DEVICE_TOKEN` are written to `.env`.
 
 ## Run
 
 ```powershell
-$env:JARVIS_SERVER_URL = "http://SERVER-IP:8000"
-$env:JARVIS_DEVICE_ID = "..."
-$env:JARVIS_DEVICE_TOKEN = "..."
-python -m device_agents.windows.agent run
+.\start.ps1
 ```
 
-For startup persistence, create a Task Scheduler task that runs the same command at logon.
+Successful connection output looks like:
 
-## Manual Command Test
+```text
+JARVIS Windows Agent
+Server: http://192.168.x.x:8000
+Device: My-Laptop
+Config: C:\...\device_agents\windows\.env
 
-After the agent is connected:
+Capabilities:
+- windows.open_url
+- windows.open_app
+- windows.notification
+- windows.system_info
+
+Connecting...
+Connected. Waiting for commands...
+```
+
+The agent heartbeats every 15 seconds and reconnects with exponential backoff up to
+60 seconds after network failures.
+
+## Verify From Debian
+
+List devices:
 
 ```bash
-curl http://SERVER-IP:8000/api/devices
-curl -X POST http://SERVER-IP:8000/api/devices/<device-id>/commands \
-  -H 'Content-Type: application/json' \
-  -d '{"action":"open_url","parameters":{"url":"https://google.com"}}'
+curl -fsS http://127.0.0.1:8000/api/devices | python -m json.tool
 ```
 
-Natural-language use is routed through tools, for example:
+Inspect one device:
+
+```bash
+curl -fsS http://127.0.0.1:8000/api/devices/<device-id> | python -m json.tool
+```
+
+The device should show:
+
+```json
+{
+  "name": "My-Laptop",
+  "device_type": "windows",
+  "online": true,
+  "capabilities": [
+    "windows.open_url",
+    "windows.open_app",
+    "windows.notification",
+    "windows.system_info"
+  ]
+}
+```
+
+## Direct Tool Tests
+
+Set the direct command token on Debian. Use `ADMIN_API_TOKEN` if set; otherwise use
+`JARVIS_SECRET_KEY`.
+
+```bash
+export JARVIS_ADMIN_TOKEN='<ADMIN_API_TOKEN-or-JARVIS_SECRET_KEY>'
+```
+
+Open Google:
+
+```bash
+python scripts/test_windows_tool.py \
+  --device "My-Laptop" \
+  --tool windows.open_url \
+  --url https://www.google.com
+```
+
+Open VS Code:
+
+```bash
+python scripts/test_windows_tool.py \
+  --device "My-Laptop" \
+  --tool windows.open_app \
+  --app vscode
+```
+
+Show notification:
+
+```bash
+python scripts/test_windows_tool.py \
+  --device "My-Laptop" \
+  --tool windows.notification \
+  --title "JARVIS" \
+  --message "Download finished."
+```
+
+Get system info:
+
+```bash
+python scripts/test_windows_tool.py \
+  --device "My-Laptop" \
+  --tool windows.system_info
+```
+
+Success means the Windows agent executed the command and returned a success response.
+A queued or merely sent command is not treated as success.
+
+## Natural-Language Test
+
+After direct tests pass, use the chat API/dashboard:
 
 ```text
 Open Google on my laptop.
+Open VS Code.
+How much RAM is my laptop using?
 ```
 
-The current implementation can dispatch to a named or uniquely registered Windows device.
-Full fuzzy device selection and clarification prompts are later context-resolution work.
+If exactly one Windows device is registered, JARVIS can infer it. If multiple Windows
+devices exist and no default is configured, JARVIS should ask for the target.
+
+Optional server-side resolution settings:
+
+```env
+DEFAULT_WINDOWS_DEVICE=<device-id-or-name>
+WINDOWS_DEVICE_ALIASES=laptop=<device-id>,my laptop=<device-id>,pc=<device-id>
+```
+
+## Auto Start
+
+Enable auto-start at Windows logon:
+
+```powershell
+.\install.ps1 -AutoStart
+```
+
+Disable auto-start and remove the virtual environment:
+
+```powershell
+.\uninstall.ps1
+```
+
+Also remove `.env`:
+
+```powershell
+.\uninstall.ps1 -RemoveConfig
+```
+
+The scheduled task runs as the logged-in user and should not require Administrator
+rights.
+
+## Known Limitations
+
+- Registration currently uses a bootstrap shared secret, not an interactive approval UI.
+- Device tokens are persisted in `.env`; Windows Credential Manager storage is a future hardening step.
+- Notification behavior depends on Windows notification settings and user session state.
+- `open_app` is allowlist-based; add explicit aliases for apps not in the default registry.
+- Real Phase 4 completion requires manual validation on the actual Windows laptop.

@@ -8,7 +8,8 @@ This is a ground-up redesign of the classic `GauravSingh9356/J.A.R.V.I.S` voice 
 (now preserved under [`legacy/`](legacy/README.md)). See
 [`docs/MIGRATION.md`](docs/MIGRATION.md) for what is kept, refactored, replaced, and removed.
 
-> **Status: Phase 3 complete** — foundation, contextual AI chat, and guarded tool calling.
+> **Status: Phase 4 checkpoint** — Windows companion/device control is ready for
+> real laptop validation; Phase 4 is not complete until the physical laptop tests pass.
 > Follow progress in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Quick Start (Debian server)
@@ -46,6 +47,7 @@ device_agents/  platform companion agents (Windows started; Android later)
 docs/           architecture, migration, roadmap, security, protocols
 docker/         image definitions
 tests/          pytest suite
+scripts/        local validation utilities
 legacy/         original J.A.R.V.I.S source (preserved)
 ```
 
@@ -61,6 +63,7 @@ make test                     # run tests in the dev container
 make lint                     # run ruff
 make new-migration name="x"   # autogenerate an Alembic migration
 make migrate                  # apply migrations
+python scripts/test_windows_tool.py --help  # direct Windows device tool test
 ```
 
 ## Configuration
@@ -76,6 +79,9 @@ real credentials. Key variables:
 | `LLM_PROVIDER` / `LLM_MODEL` / `LLM_API_KEY` | AI provider |
 | `JARVIS_SECRET_KEY` | Application signing secret |
 | `TOOLS_ENABLED` / `TOOL_MAX_AUTONOMOUS_RISK` | Tool-calling gate and autonomous risk threshold |
+| `DEVICE_REGISTRATION_SECRET` | Bootstrap secret for registering companion agents |
+| `ADMIN_API_TOKEN` | Optional token for direct device command testing |
+| `DEFAULT_WINDOWS_DEVICE` / `WINDOWS_DEVICE_ALIASES` | Optional Windows device resolution hints |
 
 ## Development
 

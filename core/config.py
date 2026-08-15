@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     # Device companion registration/auth (Phase 4).
     device_registration_secret: str = Field(default="", repr=False)
     device_command_timeout_seconds: float = 20.0
+    device_presence_timeout_seconds: float = 45.0
+    default_windows_device: str = ""
+    # Comma-separated aliases: "laptop=<uuid-or-name>,pc=<uuid-or-name>".
+    windows_device_aliases: str = ""
+
+    # Development/admin API token for direct command testing. If unset, the
+    # server secret is used. Never expose this publicly.
+    admin_api_token: str = Field(default="", repr=False)
 
     # Home Assistant integration (Phase 8+). Server-side only.
     home_assistant_url: str = ""
@@ -64,6 +72,21 @@ class Settings(BaseSettings):
 
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    def windows_alias_map(self) -> dict[str, str]:
+        aliases: dict[str, str] = {}
+        for item in self.windows_device_aliases.split(","):
+            if "=" not in item:
+                continue
+            alias, target = item.split("=", 1)
+            alias = alias.strip().lower()
+            target = target.strip()
+            if alias and target:
+                aliases[alias] = target
+        return aliases
+
+    def direct_admin_token(self) -> str:
+        return self.admin_api_token or self.jarvis_secret_key
 
 
 settings = Settings()

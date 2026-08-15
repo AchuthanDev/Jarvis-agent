@@ -16,11 +16,25 @@
 
     <main class="chat">
       <header class="chat-header">
-        <span id="status-dot" class="status-dot" aria-hidden="true"></span>
-        <span id="status-text">Connecting…</span>
+        <div class="status">
+          <span id="status-dot" class="status-dot" aria-hidden="true"></span>
+          <span id="status-text">Connecting…</span>
+        </div>
+        <div class="view-switcher">
+          <button id="chat-view-button" class="view-button active" type="button">Chat</button>
+          <button id="devices-view-button" class="view-button" type="button">Devices</button>
+        </div>
       </header>
 
       <section id="messages" class="messages" aria-live="polite"></section>
+
+      <section id="devices-view" class="devices-view hidden">
+        <div class="section-header">
+          <h2>Devices</h2>
+          <button id="refresh-devices" type="button">Refresh</button>
+        </div>
+        <div id="devices-list" class="devices-list"></div>
+      </section>
 
       <form id="chat-form" class="composer">
         <textarea

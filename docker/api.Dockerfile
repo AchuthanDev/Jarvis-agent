@@ -15,6 +15,7 @@ COPY apps ./apps
 COPY core ./core
 COPY database ./database
 COPY device_agents ./device_agents
+COPY scripts ./scripts
 COPY tests ./tests
 
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh

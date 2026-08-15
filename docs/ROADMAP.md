@@ -77,9 +77,17 @@ pass, ruff clean, `alembic check` reports no drift; dashboard served at `/`.
 - [x] Actions: open URL, open app, notification, system info
 - [x] `docs/DEVICE_PROTOCOL.md`, `docs/WINDOWS_AGENT.md`
 - [x] Protocol + permission tests
+- [x] Windows install/start/uninstall scripts
+- [x] Direct Debian-side tool test script
+- [x] Basic dashboard device list
+- [x] Manual Windows validation checkpoint prepared
 - [ ] Live validation against the actual Windows laptop
 
 **Acceptance:** "Open Google on my laptop" opens Google on the registered laptop.
+**Checkpoint 2026-08-15:** implementation ready for real laptop testing; 90/90 tests
+pass, ruff clean, `alembic check` reports no drift. Phase 4 is not complete until
+`windows.open_url`, `windows.open_app`, `windows.notification`, `windows.system_info`,
+and the natural-language "Open Google on my laptop" path pass against the actual laptop.
 
 ---
 

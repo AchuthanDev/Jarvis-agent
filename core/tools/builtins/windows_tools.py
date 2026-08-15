@@ -10,10 +10,38 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
+from core.config import settings
 from core.devices.manager import DeviceCommandError, DeviceOfflineError
+from core.devices.protocol import (
+    normalize_windows_command,
+    validate_http_url,
+)
 from core.tools.base import RISK_READ_ONLY, RISK_SAFE, Tool, ToolContext, ToolExecutionError
 from database.models import Device
+
+
+async def _device_by_id_or_name(context: ToolContext, value: str) -> Device | None:
+    try:
+        device_id = UUID(value)
+        return (
+            await context.session.scalars(
+                select(Device)
+                .options(selectinload(Device.capabilities))
+                .where(Device.id == device_id)
+                .limit(1)
+            )
+        ).first()
+    except ValueError:
+        return (
+            await context.session.scalars(
+                select(Device)
+                .options(selectinload(Device.capabilities))
+                .where(Device.name.ilike(value))
+                .limit(1)
+            )
+        ).first()
 
 
 async def _resolve_windows_device(
@@ -24,22 +52,22 @@ async def _resolve_windows_device(
 ) -> Device:
     if context.session is None:
         raise ToolExecutionError("device tools require a database session")
+    alias_map = settings.windows_alias_map()
     if device_id:
-        try:
-            device = await context.session.get(Device, UUID(device_id))
-        except ValueError as exc:
-            raise ToolExecutionError("device_id must be a UUID") from exc
+        device = await _device_by_id_or_name(context, device_id)
+        if device is None:
+            raise ToolExecutionError("Windows device not found")
     elif device_name:
-        device = (
-            await context.session.scalars(
-                select(Device).where(Device.name.ilike(device_name)).limit(1)
-            )
-        ).first()
+        target = alias_map.get(device_name.strip().lower(), device_name)
+        device = await _device_by_id_or_name(context, target)
+    elif settings.default_windows_device:
+        device = await _device_by_id_or_name(context, settings.default_windows_device)
     else:
         devices = list(
             (
                 await context.session.scalars(
                     select(Device)
+                    .options(selectinload(Device.capabilities))
                     .where(Device.device_type == "windows")
                     .order_by(Device.last_seen.desc().nulls_last())
                     .limit(2)
@@ -61,6 +89,11 @@ async def _resolve_windows_device(
     return device
 
 
+def _ensure_capability(device: Device, tool: str) -> None:
+    if not any(cap.capability == tool for cap in device.capabilities):
+        raise ToolExecutionError(f"{device.name} does not support {tool}")
+
+
 async def _dispatch(
     action: str,
     parameters: dict[str, Any],
@@ -71,11 +104,18 @@ async def _dispatch(
 ) -> dict[str, Any]:
     if context.device_manager is None:
         raise ToolExecutionError("device connection manager is unavailable")
+    command = normalize_windows_command(action)
     device = await _resolve_windows_device(
         context, device_id=device_id, device_name=device_name
     )
+    _ensure_capability(device, command.tool)
     try:
-        result = await context.device_manager.dispatch(device.id, action, parameters)
+        result = await context.device_manager.dispatch(
+            device.id,
+            command.action,
+            parameters,
+            tool=command.tool,
+        )
     except DeviceOfflineError as exc:
         raise ToolExecutionError(f"{device.name} is offline") from exc
     except DeviceCommandError as exc:
@@ -112,6 +152,10 @@ async def _open_url(
     *,
     context: ToolContext,
 ) -> dict[str, Any]:
+    try:
+        validate_http_url(url)
+    except ValueError as exc:
+        raise ToolExecutionError(str(exc)) from exc
     return await _dispatch(
         "open_url",
         {"url": url},

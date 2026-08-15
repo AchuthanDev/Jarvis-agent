@@ -33,7 +33,8 @@ Entrypoint: docker/entrypoint.sh runs `alembic upgrade head`, then uvicorn.
 | `GET /api/conversations/{id}/messages` | Full message history for a conversation. |
 | `POST /api/devices/register` | Register a companion device with a one-time registration secret. |
 | `GET /api/devices` | List registered devices and live presence. |
-| `POST /api/devices/{id}/commands` | Dispatch an allowlisted command to a connected device. |
+| `GET /api/devices/{id}` | Inspect one registered device without exposing credentials. |
+| `POST /api/devices/{id}/commands` | Authenticated direct test endpoint for allowlisted device commands. |
 | `WS /ws/device` | Authenticated companion-agent WebSocket. |
 | `GET /docs` | OpenAPI interactive docs. |
 | `GET /` | Static dashboard UI (served by FastAPI). |
@@ -59,10 +60,11 @@ Entrypoint: docker/entrypoint.sh runs `alembic upgrade head`, then uvicorn.
 - `apps/api/routers/health.py` — health endpoints.
 - `apps/api/routers/chat.py` — chat + conversation endpoints.
 - `apps/api/routers/devices.py` — device registration, listing, command dispatch, WebSocket.
-- `apps/dashboard/` — static chat UI served at `/` (index.html, app.js, style.css).
-- `device_agents/windows/` — initial Windows companion agent.
+- `apps/dashboard/` — static chat + devices UI served at `/` (index.html, app.js, style.css).
+- `device_agents/windows/` — Windows companion agent, PowerShell install/start/uninstall,
+  and local `.env` credential storage.
 
-### Schema (Phase 3)
+### Schema (Phase 4)
 
 `users`, `devices`, `device_capabilities`, `conversations`, `messages`, `memories`,
 `tasks`, `tool_calls`, `events`, `integrations`, `settings`, `permissions`,
@@ -82,5 +84,5 @@ Entrypoint: docker/entrypoint.sh runs `alembic upgrade head`, then uvicorn.
 
 ### Later phases add
 
-live Windows laptop validation, richer device selection, `core/memory`, `core/events`,
+live Windows laptop validation, approval-based device pairing, `core/memory`, `core/events`,
 `integrations/*`, `voice/*`, Android agent, `apps/worker`.

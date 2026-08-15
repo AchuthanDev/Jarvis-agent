@@ -25,10 +25,21 @@ The agent loop validates the request before execution:
 | `memory.remember` | 1 | Store a user-approved fact/preference/episodic note. |
 | `memory.recall` | 0 | Retrieve stored memories, optionally by text query. |
 | `devices.list` | 0 | List registered devices and live presence. |
-| `windows.open_url` | 1 | Open a URL on a connected Windows companion. |
-| `windows.open_app` | 1 | Open an allowlisted app on a connected Windows companion. |
+| `windows.open_url` | 1 | Open an `http`/`https` URL on a connected Windows companion. |
+| `windows.open_app` | 1 | Open an allowlisted app on a connected Windows companion (`chrome`, `vscode`, etc.). |
 | `windows.notification` | 1 | Show a notification on a connected Windows companion. |
-| `windows.system_info` | 0 | Read basic info from a connected Windows companion. |
+| `windows.system_info` | 0 | Read structured system info from a connected Windows companion. |
+
+Windows device resolution supports:
+
+- explicit `device_id`
+- explicit `device_name`
+- `DEFAULT_WINDOWS_DEVICE`
+- aliases from `WINDOWS_DEVICE_ALIASES`
+- automatic selection when exactly one Windows device is registered
+
+If more than one Windows device matches and no default/alias is configured, the tool
+returns a clear error so the assistant can ask which device to use.
 
 ## Adding A Tool
 

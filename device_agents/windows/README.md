@@ -1,7 +1,7 @@
 # Windows Companion Agent
 
-This is the initial Phase 4 Windows companion. It connects to the JARVIS server over an
-authenticated WebSocket and executes a small allowlisted command set:
+This Phase 4 companion connects outbound to the JARVIS server over an authenticated
+WebSocket and executes only allowlisted actions:
 
 - `open_url`
 - `open_app`
@@ -10,23 +10,32 @@ authenticated WebSocket and executes a small allowlisted command set:
 
 It does not expose unrestricted shell execution.
 
-## Register
+Full setup and validation instructions are in
+[`../../docs/WINDOWS_AGENT.md`](../../docs/WINDOWS_AGENT.md).
+
+## Quick Install
 
 ```powershell
-$env:JARVIS_SERVER_URL = "http://SERVER-IP:8000"
-$env:JARVIS_DEVICE_REGISTRATION_SECRET = "the-server-registration-secret"
-python -m device_agents.windows.agent register --name Achuthan-Laptop
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\install.ps1
 ```
 
-Save the returned `device_id` and `device_token` into the user's local environment.
-
-## Run
+Edit `.env`, then register:
 
 ```powershell
-$env:JARVIS_SERVER_URL = "http://SERVER-IP:8000"
-$env:JARVIS_DEVICE_ID = "..."
-$env:JARVIS_DEVICE_TOKEN = "..."
-python -m device_agents.windows.agent run
+$env:JARVIS_DEVICE_REGISTRATION_SECRET = "<server registration secret>"
+.\.venv\Scripts\python.exe agent.py --config .\.env register --name "My-Laptop"
+Remove-Item Env:JARVIS_DEVICE_REGISTRATION_SECRET
 ```
 
-For automatic startup, create a Windows Task Scheduler entry that runs the command at logon.
+Run:
+
+```powershell
+.\start.ps1
+```
+
+Optional auto-start:
+
+```powershell
+.\install.ps1 -AutoStart
+```

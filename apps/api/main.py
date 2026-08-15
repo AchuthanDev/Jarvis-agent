@@ -32,7 +32,8 @@ def create_app() -> FastAPI:
         app.state.llm = create_provider(settings)
         app.state.db_sessionmaker = get_sessionmaker()
         app.state.device_connections = DeviceConnectionManager(
-            command_timeout=settings.device_command_timeout_seconds
+            command_timeout=settings.device_command_timeout_seconds,
+            heartbeat_timeout=settings.device_presence_timeout_seconds,
         )
         if app.state.llm is not None:
             logger.info(

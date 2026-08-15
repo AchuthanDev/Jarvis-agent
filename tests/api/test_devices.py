@@ -49,6 +49,7 @@ def test_register_and_list_device(sessionmaker, monkeypatch) -> None:
         registered = _register_windows(client)
 
         listing = client.get("/api/devices")
+        detail = client.get(f"/api/devices/{registered['device_id']}")
 
     assert listing.status_code == 200
     body = listing.json()
@@ -56,6 +57,9 @@ def test_register_and_list_device(sessionmaker, monkeypatch) -> None:
     assert device["name"] == "Achuthan-Laptop"
     assert device["online"] is False
     assert "windows.open_url" in device["capabilities"]
+
+    assert detail.status_code == 200
+    assert detail.json()["name"] == "Achuthan-Laptop"
 
 
 def test_register_rejects_bad_secret(sessionmaker, monkeypatch) -> None:
@@ -75,6 +79,35 @@ def test_command_returns_409_when_device_offline(sessionmaker, monkeypatch) -> N
         response = client.post(
             f"/api/devices/{registered['device_id']}/commands",
             json={"action": "system_info"},
+            headers={"X-JARVIS-ADMIN-TOKEN": settings.jarvis_secret_key},
         )
 
     assert response.status_code == 409
+
+
+def test_command_requires_admin_token(sessionmaker, monkeypatch) -> None:
+    with _client(sessionmaker, monkeypatch) as client:
+        client.app.state.db_sessionmaker = sessionmaker
+        registered = _register_windows(client)
+        response = client.post(
+            f"/api/devices/{registered['device_id']}/commands",
+            json={"action": "system_info"},
+        )
+
+    assert response.status_code == 401
+
+
+def test_open_url_rejects_forbidden_scheme(sessionmaker, monkeypatch) -> None:
+    with _client(sessionmaker, monkeypatch) as client:
+        client.app.state.db_sessionmaker = sessionmaker
+        registered = _register_windows(client)
+        response = client.post(
+            f"/api/devices/{registered['device_id']}/commands",
+            json={
+                "action": "windows.open_url",
+                "parameters": {"url": "file:///C:/Windows/System32/calc.exe"},
+            },
+            headers={"X-JARVIS-ADMIN-TOKEN": settings.jarvis_secret_key},
+        )
+
+    assert response.status_code == 422
